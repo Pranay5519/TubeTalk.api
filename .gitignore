@@ -20,3 +20,4 @@ bin-release/
 venv
 .history
 __pycache__/
+faiss_indexes
