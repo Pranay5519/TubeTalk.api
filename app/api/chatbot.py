@@ -1,9 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException,Depends
 from app.models.chatbot_model import ChatRequest, ChatResponse ,  YouTubeRequest, EmbeddingResponse
-from app.services.rag_chatbot import build_chatbot
+from app.services.chat_service import ChatbotService, ChatState
+from typing import Annotated
 from langchain_core.messages import HumanMessage ,AIMessage , BaseMessage
 from app.utils.utility_functions import load_transcript
 from app.utils.rag_utility import text_splitter, generate_embeddings, save_embeddings_faiss, load_embeddings_faiss  
+from app.core.auth import get_gemini_api_key
 
 router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 
@@ -23,10 +25,12 @@ def create_embeddings(request: YouTubeRequest):
         raise HTTPException(status_code=500, detail=f"Embedding error: {str(e)}")
     
 @router.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest):
+def chat(request: ChatRequest , api_key : str = Depends(get_gemini_api_key)):
     try:
+        
         retriever = load_embeddings_faiss(request.thread_id)
-        chatbot = build_chatbot(retriever)
+        chatbot_service = ChatbotService(api_key=api_key)
+        chatbot = chatbot_service.build_chatbot(retriever)
         response = chatbot.invoke(
             {"messages": [HumanMessage(content=request.question)]},
             config={"configurable": {"thread_id": request.thread_id}}

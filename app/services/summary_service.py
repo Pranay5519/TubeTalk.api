@@ -4,16 +4,17 @@ from langchain.schema.runnable import RunnableSequence
 
 
 class SummaryGenerator:
-    def __init__(self, model_name: str = "gemini-2.5-flash", temperature: float = 0.3):
+    def __init__(self, api_key: str,model_name: str = "gemini-2.5-flash", temperature: float = 0.3):
         """
         Initialize the Summary Generator with a chosen LLM.
         """
         self.model_name = model_name
         self.temperature = temperature
-
+        self.api_key = api_key
         # Initialize LLM
-        self.llm = ChatGoogleGenerativeAI(model=self.model_name, temperature=self.temperature)
-
+        self.llm = ChatGoogleGenerativeAI(model=self.model_name,
+                                          temperature=self.temperature,
+                                          api_key=self.api_key)
         # Define the system message
         self.system_message = (
             "You are an expert video summarizer. Your task is to read the provided YouTube video transcript "

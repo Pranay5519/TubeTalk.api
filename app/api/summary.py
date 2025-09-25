@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter , Depends
 from app.models.topics_model import  MainTopic
 from typing import List
 from pydantic import BaseModel
@@ -6,6 +6,7 @@ from app.services.topics_service import TopicGenerator
 from app.utils.utility_functions import load_transcript
 from app.services.summary_service import SummaryGenerator
 from fastapi import APIRouter, HTTPException
+from app.core.auth import get_gemini_api_key
 router = APIRouter(prefix="/summary", tags=["summary"])
 
 class SummaryResponse(BaseModel):
@@ -13,10 +14,10 @@ class SummaryResponse(BaseModel):
     summary: str
 
 @router.post("/get_summary", response_model=SummaryResponse)
-async def generate_summary(url: str):
+async def generate_summary(url: str,api_key : str = Depends(get_gemini_api_key)):
     """Generate structured topics and summary from YouTube video URL"""
-    topics_generator = TopicGenerator()
-    summary_generator = SummaryGenerator()
+    topics_generator = TopicGenerator(api_key=api_key)
+    summary_generator = SummaryGenerator(api_key=api_key)
 
     captions = load_transcript(url)
     if not captions:

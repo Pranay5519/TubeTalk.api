@@ -3,8 +3,6 @@ from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, H
 from app.models.quiz_model import QuizList
 from app.utils.utility_functions import load_transcript
 import asyncio
-from dotenv import load_dotenv
-load_dotenv()
 
 
 class QuizGenerator:
@@ -13,13 +11,14 @@ class QuizGenerator:
     from YouTube transcripts using Gemini models.
     """
 
-    def __init__(self, model_name: str = "gemini-2.5-flash", temperature: float = 0):
+    def __init__(self, api_key : str,model_name: str = "gemini-2.5-flash", temperature: float = 0):
         self.model_name = model_name
         self.temperature = temperature
-
+        self.api_key = api_key
         # Initialize LLM
-        self.llm = ChatGoogleGenerativeAI(model=self.model_name, temperature=self.temperature)
-
+        self.llm = ChatGoogleGenerativeAI(model=self.model_name,
+                                          temperature=self.temperature,
+                                          api_key=self.api_key)
         # System message for quiz generation
         self.system_template = """You are QuizBot, an AI assistant that creates professional quizzes.
         Your task is to generate exactly 10 multiple-choice questions from the provided YouTube transcript.

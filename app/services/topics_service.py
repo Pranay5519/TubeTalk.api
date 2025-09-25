@@ -27,9 +27,14 @@ class TimestampedSegment:
 # Transcript Analyzer Class (OOP)
 # -------------------------
 class TopicGenerator:
-    def __init__(self, model_name: str = "gemini-2.5-flash", temperature: float = 0.0):
+    def __init__(self,api_key : str, model_name: str = "gemini-2.5-flash", temperature: float = 0.0):
         # Initialize AI model
-        self.model = ChatGoogleGenerativeAI(model=model_name, temperature=temperature)
+        self.api_key = api_key
+        self.model_name = model_name    
+        self.temperature = temperature
+        self.model = ChatGoogleGenerativeAI(model=self.model_name,
+                                          temperature=self.temperature,
+                                          api_key=self.api_key)
 
         # Setup parser
         self.parser = PydanticOutputParser(pydantic_object=TopicsOutput)
