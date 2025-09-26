@@ -6,11 +6,9 @@ from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 from app.models.chatbot_model import AnsandTime
 
-
 # ---------- Chat State ----------
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
-
 
 class ChatbotService:
     """
