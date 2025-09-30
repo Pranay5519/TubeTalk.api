@@ -1,9 +1,13 @@
 tubetalk.api/
+    .dockerignore
     .env
     .gitignore
+    Dockerfile
     folder_structure.txt
     get_folder_structure.py
+    lib_size.py
     requirements.txt
+    test_api.py
     app/
         main.py
         __init__.py
@@ -16,6 +20,8 @@ tubetalk.api/
         core/
             auth.py
             __init__.py
+        middleware/
+            logging_middleware.py
         models/
             chatbot_model.py
             quiz_model.py
@@ -34,5 +40,8 @@ tubetalk.api/
             __init__.py
     faiss_indexes/
         chatbot1/
+            index.faiss
+            index.pkl
+        chatbot2/
             index.faiss
             index.pkl
