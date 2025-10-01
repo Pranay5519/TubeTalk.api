@@ -3,6 +3,8 @@ from app.api import topics,summary,quiz,chatbot
 # uvicorn app.main:app --reload
 import logging
 from app.middleware.logging_middleware import LoggingMiddleware
+
+
 app = FastAPI(
     title="TubeTalk.ai API",
     description="API for Quiz Generator, Summary Generator, RAG Chatbot, and Topics Generator",

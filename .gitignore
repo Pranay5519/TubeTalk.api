@@ -21,3 +21,4 @@ venv
 .history
 __pycache__/
 faiss_indexes
+tubetalk.db
