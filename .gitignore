@@ -22,3 +22,5 @@ venv
 __pycache__/
 faiss_indexes
 tubetalk.db
+tubetalk.db-shm
+tubetalk.db-wal
