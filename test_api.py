@@ -28,7 +28,7 @@ chat_payload = {
 }
 
 headers = {
-    "gemini-api-key": "AIzaSyCuSbrEpqerOdAo4JVlZ3n7rr14mPMwRFM"  # your API key
+    "gemini-api-key": "blacblack"  # your API key
 }
 
 try:
