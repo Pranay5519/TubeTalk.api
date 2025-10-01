@@ -25,9 +25,8 @@ def create_embeddings(request: YouTubeRequest):
         raise HTTPException(status_code=500, detail=f"Embedding error: {str(e)}")
     
 @router.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest , api_key : str = Depends(get_gemini_api_key)):
+def chat(request: ChatRequest, api_key : str = Depends(get_gemini_api_key)):
     try:
-        
         retriever = load_embeddings_faiss(request.thread_id)
         chatbot_service = ChatbotService(api_key=api_key)
         chatbot = chatbot_service.build_chatbot(retriever)
@@ -47,3 +46,4 @@ def chat(request: ChatRequest , api_key : str = Depends(get_gemini_api_key)):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chatbot error: {str(e)}")
+    

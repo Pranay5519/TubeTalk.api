@@ -7,21 +7,17 @@ class AnsandTime(BaseModel):
     
 from pydantic import BaseModel
 
-
 class ChatRequest(BaseModel):
     thread_id: str
     question: str
-
 
 class ChatResponse(BaseModel):
     answer: str
     message_history : list[BaseMessage]
 
-
 class YouTubeRequest(BaseModel):
     thread_id: str
     youtube_url: str
-
 
 class EmbeddingResponse(BaseModel):
     message: str

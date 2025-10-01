@@ -5,7 +5,8 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 from app.pydantic_models.chatbot_model import AnsandTime
-
+import sqlite3 
+from langgraph.checkpoint.sqlite import SqliteSaver
 # ---------- Chat State ----------
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
@@ -34,8 +35,9 @@ class ChatbotService:
             content="You are the YouTuber from the video, answering using only transcript context."
         )
 
-        # In-memory checkpointer
-        self.checkpointer = MemorySaver()
+       # SQLite checkpointer (persistent memory)
+        conn = sqlite3.connect(database="tubetalk.db", check_same_thread=False)
+        self.checkpointer = SqliteSaver(conn=conn)
 
     def _chat_node(self, state: ChatState, retriever):
         """
