@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException,Depends
-from app.models.chatbot_model import ChatRequest, ChatResponse ,  YouTubeRequest, EmbeddingResponse
+from app.pydantic_models.chatbot_model import ChatRequest, ChatResponse ,  YouTubeRequest, EmbeddingResponse
 from app.services.chat_service import ChatbotService, ChatState
 from typing import Annotated
 from langchain_core.messages import HumanMessage ,AIMessage , BaseMessage

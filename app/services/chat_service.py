@@ -4,7 +4,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
-from app.models.chatbot_model import AnsandTime
+from app.pydantic_models.chatbot_model import AnsandTime
 
 # ---------- Chat State ----------
 class ChatState(TypedDict):

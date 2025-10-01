@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
-from app.database.models import Quiz
+from app.database.models import Quiz , Summary , Topics
 from datetime import datetime
-from app.models.quiz_model import Quiz as PydanticQuiz, QuizList
+from app.pydantic_models.quiz_model import Quiz as PydanticQuiz, QuizList
+from app.pydantic_models.topics_model import TopicsOutput
 import json
+
 
 def save_quiz_to_db(db: Session, thread_id: str, quiz_list: QuizList):
     """
@@ -38,3 +40,67 @@ def load_quiz_from_db(db: Session, thread_id: str) -> QuizList | None:
     quizzes = [PydanticQuiz(**qd) for qd in quiz_dicts]  # Pydantic objects
     return QuizList(quizzes=quizzes)
 
+
+def save_summary_to_db(db: Session, thread_id: str, summary_text: str):
+    """
+    Save a summary string for a given thread_id into the summary table.
+    """
+    new_summary = Summary(
+        thread_id=thread_id,
+        summary=summary_text,
+        created_at=datetime.now()
+    )
+    db.add(new_summary)
+    db.commit()
+    db.refresh(new_summary)
+    return new_summary
+
+def load_summary_from_db(db: Session, thread_id: str) -> str | None:
+    """
+    Check if a summary for the given thread_id exists in the database.
+    Returns the summary string if found, else None.
+    """
+    summary_obj = db.query(Summary).filter(Summary.thread_id == thread_id).first()
+    if summary_obj:
+        return summary_obj.summary
+    return None
+
+
+
+def save_topics_to_db(db: Session, thread_id: str, topics: TopicsOutput):
+    """
+    Save transcript topics into the database.
+    Converts TopicsOutput Pydantic object to JSON before saving.
+    """
+    topics_json = topics.model_dump_json()  # convert Pydantic -> JSON string
+
+    new_topics = Topics(
+        thread_id=thread_id,
+        output_json=topics_json,
+        created_at=datetime.now()
+    )
+    db.add(new_topics)
+    db.commit()
+    db.refresh(new_topics)
+    return new_topics
+
+def load_topics_from_db(db: Session, thread_id: str) -> TopicsOutput | None:
+    """
+    Load transcript topics from the database using thread_id.
+    Returns a TopicsOutput object if found, else None.
+    """
+    result = (
+        db.query(Topics)
+        .filter(Topics.thread_id == thread_id)
+        .order_by(Topics.created_at.desc())
+        .first()
+    )
+
+    if result:
+        try:
+            data = json.loads(result.output_json)  # string -> dict
+            return TopicsOutput.model_validate(data)  # dict -> Pydantic object
+        except Exception as e:
+            print("Error loading TopicsOutput from DB:", e)
+            return None
+    return None

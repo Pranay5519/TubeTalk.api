@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from app.models.quiz_model import QuizList
+from app.pydantic_models.quiz_model import QuizList
 from app.services.quiz_service import QuizGenerator
 from app.utils.utility_functions import load_transcript
 from app.core.auth import get_gemini_api_key
@@ -10,7 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.exc import SQLAlchemyError
 import logging
 Base.metadata.create_all(bind=engine)
-router = APIRouter(prefix="/quiz", tags=["quiz"])
+
 
 def get_db():
     db = SessionLocal()
@@ -18,9 +18,9 @@ def get_db():
         yield db
     finally:
         db.close()
-
-@router.post("/generate_or_get_quiz", response_model=QuizList)
-async def generate_or_get_quiz(
+router = APIRouter(prefix="/quiz", tags=["quiz"])
+@router.post("/generate_quiz", response_model=QuizList)
+async def generate_or_load_quiz(
     url: str,
     thread_id: str,
     db: Session = Depends(get_db),
@@ -33,9 +33,9 @@ async def generate_or_get_quiz(
     # Try to load existing quiz
     existing_quiz = load_quiz_from_db(db, thread_id)
     if existing_quiz:
-        print("Returning existing quiz from DB.")
+        logging.info(f"Returning existing quiz for thread_id: {thread_id}") 
         return existing_quiz
-
+    logging.info(f"No existing quiz for thread_id: {thread_id}, generating new one.")
     # No existing quiz, generate new one
     quiz_generator = QuizGenerator(api_key=api_key)
     captions = load_transcript(url)
@@ -52,4 +52,4 @@ async def generate_or_get_quiz(
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Failed to save quiz: {str(e)}")
 
-    return quiz  # QuizList object
+    return {"quizzes" : quiz.quizzes}  # QuizList object

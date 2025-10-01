@@ -1,23 +1,59 @@
 from fastapi import APIRouter,Depends
-from app.models.topics_model import  TopicsOutput
+from app.pydantic_models.topics_model import  TopicsOutput
 from app.services.topics_service import TopicGenerator
 from app.utils.utility_functions import load_transcript
 from fastapi import APIRouter, HTTPException
 from app.core.auth import get_gemini_api_key
+from fastapi.concurrency import run_in_threadpool
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+from app.database.database import Base, engine, SessionLocal
+from app.database.crud import save_topics_to_db, load_topics_from_db
+import logging
+import json
+Base.metadata.create_all(bind=engine)
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 router = APIRouter(prefix="/topics", tags=["topics"])
-
-
 @router.post("/get_topics", response_model=TopicsOutput)
-def generate_topics(url: str,api_key : str = Depends(get_gemini_api_key)):
+async def generate_or_load_topics(
+    url: str,
+    thread_id: str,
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_gemini_api_key)
+    ):
     """Generate structured topics from YouTube video URL"""
+    existing_topics = load_topics_from_db(db, thread_id)
+    if existing_topics:
+        logging.info(f"Returning existing topics for thread_id: {thread_id}") 
+        return existing_topics
+    logging.info(f"No existing topics for thread_id: {thread_id}, generating new one.")
+    
     analyzer = TopicGenerator(api_key=api_key)
     captions = load_transcript(url)
-    if captions:
-        segments = analyzer.parse_transcript(captions)
-        formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
-        response = analyzer.extract_topics(" ".join(formatted))
-        return {"main_topics": response.main_topics}
-    else:
+    
+    if not captions:
         raise HTTPException(status_code=404, detail="No transcript found for this video.")
+    
+    segments = analyzer.parse_transcript(captions)
+    formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
+    response = await analyzer.extract_topics(" ".join(formatted))
+    if response:
+        try:
+            # Save topics to DB
+            print("Saving topics to DB...")
+            topics_output = TopicsOutput(main_topics=response.main_topics) # Convert To Pydantic Model
+            await  run_in_threadpool(save_topics_to_db, db, thread_id, topics_output)
+            logging.info(f"Topics saved for thread_id: {thread_id}")
+        except SQLAlchemyError as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to save topics: {str(e)}")
+    return {"main_topics": response.main_topics}
+    
     
     

@@ -1,6 +1,6 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
-from app.models.quiz_model import QuizList
+from app.pydantic_models.quiz_model import QuizList
 from app.utils.utility_functions import load_transcript
 import asyncio
 

@@ -8,7 +8,7 @@ from langchain.prompts import (
 )
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.output_parsers import PydanticOutputParser
-from ..models.topics_model import TopicsOutput 
+from ..pydantic_models.topics_model import TopicsOutput 
 import re
 from dotenv import load_dotenv
 load_dotenv()
@@ -101,14 +101,14 @@ class TopicGenerator:
     # -------------------------
     # Topic Extraction with LLM
     # -------------------------
-    def extract_topics(self, transcript: str) -> TopicsOutput:
+    async def extract_topics(self, transcript: str) -> TopicsOutput:
         """Extract structured topics from transcript using LLM"""
         prompt = self.chat_prompt.format_prompt(
             transcript=transcript, format_instructions=self.format_instructions
         )
         messages = prompt.to_messages()
 
-        response_message = self.model.invoke(messages)
+        response_message = await self.model.ainvoke(messages)
         raw_output = response_message.content
 
         if isinstance(raw_output, list):
