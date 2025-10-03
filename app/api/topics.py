@@ -42,12 +42,12 @@ async def generate_or_load_topics(
     
     segments = analyzer.parse_transcript(captions)
     formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
-    response = await analyzer.extract_topics(" ".join(formatted))
+    response = await analyzer.extract_topics(" ".join(formatted)) #| extract_topics Does not return Pydantic Output
     if response:
         try:
             # Save topics to DB
             print("Saving topics to DB...")
-            topics_output = TopicsOutput(main_topics=response.main_topics) # Convert To Pydantic Model
+            topics_output = TopicsOutput(main_topics=response.main_topics) # Convert To Pydantic Model | extract_topics Does not return Pydantic Output
             await  run_in_threadpool(save_topics_to_db, db, thread_id, topics_output)
             logging.info(f"Topics saved for thread_id: {thread_id}")
         except SQLAlchemyError as e:

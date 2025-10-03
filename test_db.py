@@ -1,14 +1,14 @@
 from sqlalchemy.orm import Session
 from app.database.database import SessionLocal
-from app.database.crud import load_quiz_from_db  # assuming you saved the function
+from app.database.crud import load_quiz_from_db , load_summary_from_db , load_topics_from_db # assuming you saved the function
 
 # Create a database session
 db: Session = SessionLocal()
 
 # Load quiz for a specific thread_id
-thread_id = "roadmap"
-quiz_list = load_quiz_from_db(db, thread_id)
-
+thread_id = "check"
+quiz_list = load_summary_from_db(db, thread_id)
+print(type(quiz_list))
 if quiz_list:
     print(quiz_list)
 else:

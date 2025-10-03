@@ -1,20 +1,27 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.runnable import RunnableSequence
-
+from app.pydantic_models.summay_model import SummaryOutput
 
 class SummaryGenerator:
-    def __init__(self, api_key: str,model_name: str = "gemini-2.5-flash", temperature: float = 0.3):
+    def __init__(self, api_key: str, model_name: str = "gemini-2.5-flash", temperature: float = 0.3):
         """
         Initialize the Summary Generator with a chosen LLM.
         """
         self.model_name = model_name
         self.temperature = temperature
         self.api_key = api_key
+
         # Initialize LLM
-        self.llm = ChatGoogleGenerativeAI(model=self.model_name,
-                                          temperature=self.temperature,
-                                          api_key=self.api_key)
+        self.llm = ChatGoogleGenerativeAI(
+            model=self.model_name,
+            temperature=self.temperature,
+            api_key=self.api_key
+        )
+
+        # Structured output model (Pydantic)
+        self.structured_llm = self.llm.with_structured_output(SummaryOutput)
+
         # Define the system message
         self.system_message = (
             "You are an expert video summarizer. Your task is to read the provided YouTube video transcript "
@@ -37,38 +44,66 @@ class SummaryGenerator:
             ("human", "Transcript:\n{transcript}\n\nTopics & Subtopics:\n{topics}"),
         ])
 
-        # Runnable sequence: prompt -> model -> string output
-        chain = prompt | self.llm | (lambda x: x.content if hasattr(x, "content") else str(x))
+        # Runnable sequence: prompt -> structured LLM -> structured output
+        chain = prompt | self.structured_llm
         return chain
 
-    async def generate_summary(self, transcript: str, topics: str) -> str:
+    async def generate_summary(self, transcript: str, topics: str) -> SummaryOutput:
         """
         Generate a structured summary given transcript and topics.
+        Returns a Pydantic Summary object.
         """
         return await self.summarizer_chain.ainvoke({"transcript": transcript, "topics": topics})
 
-from app.services.topics_service import TopicGenerator
-from app.utils.utility_functions import load_transcript
-import asyncio
 
-"""if __name__ == "__main__":
+# ------------------- Runner -------------------
+
+"""import asyncio
+import os
+from fastapi import HTTPException
+
+from app.services.topics_service import TopicGenerator
+from app.services.summary_service import SummaryGenerator
+from app.utils.utility_functions import load_transcript
+from app.pydantic_models.topics_model import TopicsOutput
+
+api_key = os.environ["GOOGLE_API_KEY"]
+url = "https://youtu.be/TVUibwoVXZc"
+
+
+if __name__ == "__main__":
     async def main():
-        generator = SummaryGenerator()
-        analyzer = TopicGenerator()
-        
-        transcript_text = load_transcript("https://youtu.be/TVUibwoVXZc")
+        generator = SummaryGenerator(api_key=api_key)
+        analyzer = TopicGenerator(api_key=api_key)
+
+        # Load transcript
+        captions = load_transcript(url)
         print("\n🎬 Loaded Transcript")
         print("==" * 20)
 
-        if transcript_text:
-            segments = analyzer.parse_transcript(transcript_text)
-            formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
-            topics_text = analyzer.extract_topics(" ".join(formatted))
-            print("\n🗂️ Extracted Topics & Subtopics")
-            print(topics_text)
-            print("==" * 20)
+        if not captions:
+            raise HTTPException(status_code=404, detail="No transcript found for this video.")
 
-            summary = await generator.generate_summary(transcript_text, topics_text)
-            print("\n📘 Generated Summary:\n", summary)
+        # Parse transcript into segments
+        segments = analyzer.parse_transcript(captions)
+        formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
 
-    asyncio.run(main())"""
+        # Extract topics (async call)
+        response = await analyzer.extract_topics(" ".join(formatted))
+        if not response:
+            raise HTTPException(status_code=500, detail="Failed to extract topics.")
+
+        # Convert to Pydantic model
+        topics_output = TopicsOutput(main_topics=response.main_topics)
+
+        print("\n🗂️ Extracted Topics & Subtopics")
+        print(topics_output.model_dump_json(indent=2))
+        print("==" * 20)
+
+        # Generate summary
+        summary = await generator.generate_summary(captions, topics_output.model_dump_json())
+        print("==" * 30)
+        print("\n📘 Generated Summary:\n", summary.model_dump_json(indent=2))
+
+    asyncio.run(main())
+"""

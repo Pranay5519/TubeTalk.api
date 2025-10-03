@@ -1,5 +1,6 @@
 from fastapi import APIRouter , Depends
-from app.pydantic_models.topics_model import  MainTopic
+from app.pydantic_models.topics_model import  MainTopic , TopicsOutput
+from app.pydantic_models.summay_model import SummaryOutput
 from typing import List
 from pydantic import BaseModel
 from app.services.topics_service import TopicGenerator
@@ -23,11 +24,8 @@ def get_db():
 
 router = APIRouter(prefix="/summary", tags=["summary"])
 
-class SummaryResponse(BaseModel):
-    topics: List[MainTopic]
-    summary: str
 
-@router.post("/get_summary", response_model=SummaryResponse)
+@router.post("/get_summary", response_model=SummaryOutput)
 async def generate_or_load_summary(url: str,
                                 thread_id: str,
                                 db: Session = Depends(get_db),
@@ -39,8 +37,7 @@ async def generate_or_load_summary(url: str,
     if existing_summary :
         logging.info(f"Returning existing summary for thread_id: {thread_id}") 
         return {
-        "topics": existing_topics.main_topics,
-        "summary": existing_summary
+        "main_summary": existing_summary.main_summary
     }
     
     logging.info(f"No existing summary for thread_id: {thread_id}, generating new one.")
@@ -64,18 +61,26 @@ async def generate_or_load_summary(url: str,
         # Extract topics
         response = await topics_generator.extract_topics(" ".join(formatted))
         topics = response.main_topics
-    
+        if response:
+            try:
+                topics_outupt = TopicsOutput(main_topics=topics)
+                await run_in_threadpool(save_topics_to_db , db , thread_id , topics_outupt)
+                logging.info(f"Topics saved  for thread_id : {thread_id}")
+            except SQLAlchemyError as e:
+                db.rollback()
+                raise HTTPException(status_code=500, detail=f"Failed to save topics: {str(e)}")
+            
     # Generate summary (await because it's async)
     summary = await summary_generator.generate_summary(captions, str(topics))
     if summary:
         try:
             # Save new quiz to DB
+            logging.info(f"Summary Saved for thread_id: {thread_id}")
             await run_in_threadpool(save_summary_to_db, db, thread_id, summary)
         except SQLAlchemyError as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Failed to save quiz: {str(e)}")
 
     return {
-        "topics": topics,
-        "summary": summary,
+        "main_summary": summary.main_summary,
     }

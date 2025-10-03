@@ -24,3 +24,6 @@ faiss_indexes
 tubetalk.db
 tubetalk.db-shm
 tubetalk.db-wal
+
+test_api.py
+test_api_chatbot.py

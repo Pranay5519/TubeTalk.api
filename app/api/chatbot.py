@@ -12,15 +12,30 @@ router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 @router.post("/create_embeddings", response_model=EmbeddingResponse)
 def create_embeddings(request: YouTubeRequest):
     try:
+        # 1. Check if embeddings already exist for this thread_id
+        existing = load_embeddings_faiss(request.thread_id)
+        if existing:
+            return EmbeddingResponse(
+                message=f"⚡ Embeddings already exist for thread {request.thread_id}"
+            )
+
+        # 2. Generate new embeddings if not found
         transcripts = load_transcript(request.youtube_url)
         print("loaded transcripts")
+
         chunks = text_splitter(transcripts)
         print("split into chunks")
+
         vector_store = generate_embeddings(chunks)
         print("generated embeddings")
+
         save_embeddings_faiss(request.thread_id, vector_store)
         print("saved embeddings")
-        return EmbeddingResponse(message=f"✅ Embeddings created for thread {request.thread_id}")
+
+        return EmbeddingResponse(
+            message=f"✅ Embeddings created for thread {request.thread_id}"
+        )
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Embedding error: {str(e)}")
     

@@ -3,6 +3,7 @@ from app.database.models import Quiz , Summary , Topics
 from datetime import datetime
 from app.pydantic_models.quiz_model import Quiz as PydanticQuiz, QuizList
 from app.pydantic_models.topics_model import TopicsOutput
+from app.pydantic_models.summay_model import SummaryOutput
 import json
 
 
@@ -41,32 +42,10 @@ def load_quiz_from_db(db: Session, thread_id: str) -> QuizList | None:
     return QuizList(quizzes=quizzes)
 
 
-def save_summary_to_db(db: Session, thread_id: str, summary_text: str):
-    """
-    Save a summary string for a given thread_id into the summary table.
-    """
-    new_summary = Summary(
-        thread_id=thread_id,
-        summary=summary_text,
-        created_at=datetime.now()
-    )
-    db.add(new_summary)
-    db.commit()
-    db.refresh(new_summary)
-    return new_summary
 
-def load_summary_from_db(db: Session, thread_id: str) -> str | None:
-    """
-    Check if a summary for the given thread_id exists in the database.
-    Returns the summary string if found, else None.
-    """
-    summary_obj = db.query(Summary).filter(Summary.thread_id == thread_id).first()
-    if summary_obj:
-        return summary_obj.summary
+
+
     return None
-
-
-
 def save_topics_to_db(db: Session, thread_id: str, topics: TopicsOutput):
     """
     Save transcript topics into the database.
@@ -83,7 +62,6 @@ def save_topics_to_db(db: Session, thread_id: str, topics: TopicsOutput):
     db.commit()
     db.refresh(new_topics)
     return new_topics
-
 def load_topics_from_db(db: Session, thread_id: str) -> TopicsOutput | None:
     """
     Load transcript topics from the database using thread_id.
@@ -103,4 +81,28 @@ def load_topics_from_db(db: Session, thread_id: str) -> TopicsOutput | None:
         except Exception as e:
             print("Error loading TopicsOutput from DB:", e)
             return None
+    return None
+
+def save_summary_to_db(db: Session, thread_id: str, summary_text: SummaryOutput):
+    summary_json = summary_text.model_dump_json()# Convert Pydantic → str JSON
+    new_summary = Summary(
+        thread_id=thread_id,
+        summary=summary_json,  
+        created_at=datetime.now()
+    )
+    db.add(new_summary)
+    db.commit()
+    db.refresh(new_summary)
+    return new_summary
+
+def load_summary_from_db(db: Session, thread_id: str) -> SummaryOutput | None:
+    """
+    Check if a summary for the given thread_id exists in the database.
+    Returns the structured SummaryOutput if found, else None.
+    """
+    summary_obj = db.query(Summary).filter(Summary.thread_id == thread_id).first()
+    if summary_obj and summary_obj.summary:
+        # Convert JSON string back to Pydantic object
+        summary_dict = json.loads(summary_obj.summary)
+        return SummaryOutput.model_validate(summary_dict)  # or model_validate_json(summary_obj.summary)
     return None
