@@ -14,6 +14,8 @@ from sqlalchemy.orm import Session
 from app.database.database import Base, engine, SessionLocal
 from app.database.crud import save_summary_to_db, load_summary_from_db , load_topics_from_db , save_topics_to_db
 import logging
+logger = logging.getLogger("uvicorn")
+
 Base.metadata.create_all(bind=engine)
 def get_db():
     db = SessionLocal()
@@ -35,12 +37,12 @@ async def generate_or_load_summary(url: str,
     existing_summary = load_summary_from_db(db, thread_id)
     existing_topics = load_topics_from_db(db, thread_id)
     if existing_summary :
-        logging.info(f"Returning existing summary for thread_id: {thread_id}") 
+        logger.info(f"Returning existing summary for thread_id: {thread_id}") 
         return {
         "main_summary": existing_summary.main_summary
     }
     
-    logging.info(f"No existing summary for thread_id: {thread_id}, generating new one.")
+    logger.info(f"No existing summary for thread_id: {thread_id}, generating new one.")
     # No existing summary, generate new one
     
     topics_generator = TopicGenerator(api_key=api_key)
@@ -51,11 +53,11 @@ async def generate_or_load_summary(url: str,
         raise HTTPException(status_code=404, detail="No transcript found for this video.")
     
     if existing_topics:
-        logging.info(f"Using existing topics for thread_id: {thread_id}") 
+        logger.info(f"Using existing topics for thread_id: {thread_id}") 
         topics = existing_topics.main_topics
     # Parse transcript into segments
     else:
-        logging.info(f"No existing topics for thread_id: {thread_id}, generating new one.") 
+        logger.info(f"No existing topics for thread_id: {thread_id}, generating new one.") 
         segments = topics_generator.parse_transcript(captions)
         formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
         # Extract topics
@@ -65,7 +67,7 @@ async def generate_or_load_summary(url: str,
             try:
                 topics_outupt = TopicsOutput(main_topics=topics)
                 await run_in_threadpool(save_topics_to_db , db , thread_id , topics_outupt)
-                logging.info(f"Topics saved  for thread_id : {thread_id}")
+                logger.info(f"Topics saved  for thread_id : {thread_id}")
             except SQLAlchemyError as e:
                 db.rollback()
                 raise HTTPException(status_code=500, detail=f"Failed to save topics: {str(e)}")
@@ -75,7 +77,7 @@ async def generate_or_load_summary(url: str,
     if summary:
         try:
             # Save new quiz to DB
-            logging.info(f"Summary Saved for thread_id: {thread_id}")
+            logger.info(f"Summary Saved for thread_id: {thread_id}")
             await run_in_threadpool(save_summary_to_db, db, thread_id, summary)
         except SQLAlchemyError as e:
             db.rollback()

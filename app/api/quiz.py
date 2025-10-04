@@ -8,7 +8,10 @@ from app.database.database import Base, engine, SessionLocal
 from app.database.crud import save_quiz_to_db, load_quiz_from_db
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.exc import SQLAlchemyError
+
 import logging
+logger = logging.getLogger("uvicorn")
+
 Base.metadata.create_all(bind=engine)
 
 
@@ -33,9 +36,9 @@ async def generate_or_load_quiz(
     # Try to load existing quiz
     existing_quiz = load_quiz_from_db(db, thread_id)
     if existing_quiz:
-        logging.info(f"Returning existing quiz for thread_id: {thread_id}") 
+        logger.info(f"Returning existing quiz for thread_id: {thread_id}") 
         return existing_quiz
-    logging.info(f"No existing quiz for thread_id: {thread_id}, generating new one.")
+    logger.info(f"No existing quiz for thread_id: {thread_id}, generating new one.")
     # No existing quiz, generate new one
     quiz_generator = QuizGenerator(api_key=api_key)
     captions = load_transcript(url)

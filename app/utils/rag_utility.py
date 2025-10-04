@@ -3,8 +3,9 @@ import shutil
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-
-
+from app.cache.redis_cache import get_cache, set_cache
+import logging
+logger = logging.getLogger("uvicorn")
 def text_splitter(transcript: str):
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     return splitter.create_documents([transcript])
@@ -36,26 +37,30 @@ def save_embeddings_faiss(thread_id: str, vector_store, save_dir: str = "faiss_i
 
 
 def load_embeddings_faiss(thread_id: str, save_dir: str = "faiss_indexes"):
-    # Build the load path
-    load_path = os.path.join(save_dir, thread_id)
+    cache_key = f"retriever:{thread_id}"
 
-    # Initialize embeddings
+    retriever = get_cache(cache_key)
+    if retriever:
+        logger.info(f"⚡ Retriever for {thread_id} loaded from Redis cache")
+        #print(f"⚡ Retriever for {thread_id} loaded from Redis cache")
+        return retriever
+
+    load_path = os.path.join(save_dir, thread_id)
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2",
         model_kwargs={"device": "cpu"}
     )
 
-    # Check if FAISS index exists
     if os.path.exists(load_path):
         vector_store = FAISS.load_local(
-            load_path,
-            embeddings,
-            allow_dangerous_deserialization=True
+            load_path, embeddings, allow_dangerous_deserialization=True
         )
-        return retriever_docs(vector_store)
+        retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 3})
+        set_cache(cache_key, retriever)
+        logger.info(f"✅ Cached retriever for {thread_id}")
+        return retriever
     else:
         raise FileNotFoundError(f"❌ No FAISS index found for thread_id={thread_id}")
-
 
 def clear_faiss_indexes(base_dir: str = "faiss_indexes"):
     if os.path.exists(base_dir):

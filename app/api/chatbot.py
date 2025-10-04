@@ -7,6 +7,7 @@ from app.utils.utility_functions import load_transcript
 from app.utils.rag_utility import text_splitter, generate_embeddings, save_embeddings_faiss, load_embeddings_faiss  
 from app.core.auth import get_gemini_api_key
 import logging
+logger = logging.getLogger("uvicorn")
 router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 
 @router.post("/create_embeddings", response_model=EmbeddingResponse)
@@ -15,7 +16,7 @@ def create_embeddings(request: YouTubeRequest):
         # 1. Try loading existing embeddings safely
         try:
             existing = load_embeddings_faiss(request.thread_id)
-            logging.info(f"Loaded saved Embeddings {request.thread_id}")
+            logger.info(f"Loaded saved Embeddings {request.thread_id}")
         except FileNotFoundError:
             existing = None
         except Exception:

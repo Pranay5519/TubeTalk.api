@@ -1,17 +1,19 @@
-from fastapi import APIRouter,Depends
-from app.pydantic_models.topics_model import  TopicsOutput
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from app.pydantic_models.topics_model import TopicsOutput
 from app.services.topics_service import TopicGenerator
 from app.utils.utility_functions import load_transcript
-from fastapi import APIRouter, HTTPException
 from app.core.auth import get_gemini_api_key
-from fastapi.concurrency import run_in_threadpool
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
 from app.database.database import Base, engine, SessionLocal
 from app.database.crud import save_topics_to_db, load_topics_from_db
+from fastapi.concurrency import run_in_threadpool
+from sqlalchemy.exc import SQLAlchemyError
 import logging
-import json
+
+logger = logging.getLogger("uvicorn")  # Use the same logger as main.py
+
 Base.metadata.create_all(bind=engine)
+
 def get_db():
     db = SessionLocal()
     try:
@@ -20,19 +22,23 @@ def get_db():
         db.close()
 
 router = APIRouter(prefix="/topics", tags=["topics"])
+
 @router.post("/get_topics", response_model=TopicsOutput)
 async def generate_or_load_topics(
     url: str,
     thread_id: str,
     db: Session = Depends(get_db),
     api_key: str = Depends(get_gemini_api_key)
-    ):
+):
     """Generate structured topics from YouTube video URL"""
+    
+    # Try to load existing topics
     existing_topics = load_topics_from_db(db, thread_id)
     if existing_topics:
-        logging.info(f"Returning existing topics for thread_id: {thread_id}") 
+        logger.info(f"Returning existing topics for thread_id: {thread_id}") 
         return existing_topics
-    logging.info(f"No existing topics for thread_id: {thread_id}, generating new one.")
+
+    logger.info(f"No existing topics for thread_id: {thread_id}, generating new one.")
     
     analyzer = TopicGenerator(api_key=api_key)
     captions = load_transcript(url)
@@ -42,18 +48,19 @@ async def generate_or_load_topics(
     
     segments = analyzer.parse_transcript(captions)
     formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
-    response = await analyzer.extract_topics(" ".join(formatted)) #| extract_topics Does not return Pydantic Output
+
+    response = await analyzer.extract_topics(" ".join(formatted))  # async call
+
     if response:
         try:
-            # Save topics to DB
-            print("Saving topics to DB...")
-            topics_output = TopicsOutput(main_topics=response.main_topics) # Convert To Pydantic Model | extract_topics Does not return Pydantic Output
-            await  run_in_threadpool(save_topics_to_db, db, thread_id, topics_output)
-            logging.info(f"Topics saved for thread_id: {thread_id}")
+            topics_output = TopicsOutput(main_topics=response.main_topics)  # Convert to Pydantic model
+            await run_in_threadpool(save_topics_to_db, db, thread_id, topics_output)
+            logger.info(f"Topics saved for thread_id: {thread_id}")
+            return topics_output  # Always return Pydantic model
         except SQLAlchemyError as e:
             db.rollback()
+            logger.error(f"Failed to save topics for thread_id {thread_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to save topics: {str(e)}")
-    return {"main_topics": response.main_topics}
     
-    
-    
+    # If response is empty
+    raise HTTPException(status_code=404, detail="No topics could be generated.")
