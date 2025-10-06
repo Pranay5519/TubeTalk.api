@@ -1,6 +1,7 @@
 import os
 import shutil
 import sqlite3 
+import datetime
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -59,7 +60,7 @@ def load_embeddings_faiss(thread_id: str, save_dir: str = "faiss_indexes"):
         )
         retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 3})
         set_cache(cache_key, retriever)
-        logger.info(f"✅ Cached retriever for {thread_id}")
+        logger.info(f"✅ Cached retriever for {thread_id} -{datetime.datetime.now()}")
         return retriever
     else:
         raise FileNotFoundError(f"❌ No FAISS index found for thread_id={thread_id}")

@@ -12,7 +12,7 @@ from app.database.crud import save_url_to_db
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from app.database.database import Base, engine, SessionLocal
-
+import datetime
 def get_db():
     db = SessionLocal()
     try:
@@ -80,12 +80,17 @@ async def create_embeddings(
 def chat(request: ChatRequest, api_key : str = Depends(get_gemini_api_key)):
     try:
         retriever = load_embeddings_faiss(request.thread_id)
+        logger.info(f'loaded embeddings-{datetime.datetime.now()}')
         chatbot_service = ChatbotService(api_key=api_key)
+        logger.info(f'chatbot service-{datetime.datetime.now()}')
+        
         chatbot = chatbot_service.build_chatbot(retriever)
         response = chatbot.invoke(
             {"messages": [HumanMessage(content=request.question)]},
             config={"configurable": {"thread_id": request.thread_id}}
         )
+        logger.info(f'response generated-{datetime.datetime.now()}')
+        
         chat_state = chatbot.get_state(
             config={"configurable": {"thread_id": request.thread_id}}
         )
