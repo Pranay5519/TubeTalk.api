@@ -12,40 +12,46 @@ router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 
 @router.post("/create_embeddings", response_model=EmbeddingResponse)
 def create_embeddings(request: YouTubeRequest):
+    """
+    Create or load FAISS embeddings for a given YouTube transcript and thread_id.
+    """
     try:
-        # 1. Try loading existing embeddings safely
-        try:
-            existing = load_embeddings_faiss(request.thread_id)
-            logger.info(f"Loaded saved Embeddings {request.thread_id}")
-        except FileNotFoundError:
-            existing = None
-        except Exception:
-            existing = None
-
+        # 1. Check if embeddings already exist for this thread_id
+        existing = load_embeddings_faiss(request.thread_id)
         if existing:
             return EmbeddingResponse(
                 message=f"⚡ Embeddings already exist for thread {request.thread_id}"
             )
-        
-        # 2. Generate new embeddings if not found
-        transcripts = load_transcript(request.youtube_url)
-        if not transcripts:
-            raise HTTPException(status_code=404, detail="Transcript not found")
+    except FileNotFoundError:
+        try:
+            # 2. Generate new embeddings if not found
+            transcripts = load_transcript(request.youtube_url)
+            print("loaded transcripts")
 
-        print("loaded transcripts")
-        chunks = text_splitter(transcripts)
-        print("split into chunks")
-        vector_store = generate_embeddings(chunks)
-        print("generated embeddings")
-        save_embeddings_faiss(request.thread_id, vector_store)
-        print("saved embeddings")
+            chunks = text_splitter(transcripts)
+            print("split into chunks")
 
-        return EmbeddingResponse(
-            message=f"✅ Embeddings created for thread {request.thread_id}"
-        )
+            vector_store = generate_embeddings(chunks)
+            print("generated embeddings")
+
+            save_embeddings_faiss(request.thread_id, vector_store)
+            print("saved embeddings")
+
+            return EmbeddingResponse(
+                message=f"✅ New embeddings created for thread {request.thread_id}"
+            )
+
+        except Exception as inner_error:
+            raise HTTPException(
+                status_code=500,
+                detail=f"❌ Error while creating embeddings: {str(inner_error)}"
+            )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Embedding error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"❌ Unexpected embedding error: {str(e)}"
+        )
     
 @router.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest, api_key : str = Depends(get_gemini_api_key)):

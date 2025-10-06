@@ -1,5 +1,6 @@
 import os
 import shutil
+import sqlite3 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -17,6 +18,7 @@ def generate_embeddings(chunks):
         model_kwargs={"device": "cpu"}
     )
     return FAISS.from_documents(chunks, embeddings)
+
 
 
 def retriever_docs(vector_store):
@@ -71,3 +73,46 @@ def clear_faiss_indexes(base_dir: str = "faiss_indexes"):
             elif os.path.isdir(item_path):
                 shutil.rmtree(item_path)
         print(f"✅ Cleared all contents inside: {base_dir}")
+    
+def delete_all_threads_from_db():
+    """
+    Delete all chat threads & related data from database.
+    """
+    try:
+        conn = sqlite3.connect(r"tubetalk.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = cursor.fetchall()
+        for table_name in tables:
+            cursor.execute(f"DELETE FROM {table_name[0]};")
+        conn.commit()
+        conn.close()
+        print("✅ All threads deleted successfully.")
+    except Exception as e:
+        print("❌ Error while deleting threads:", e)        
+        
+        
+def get_all_thread_ids(db_path: str = "tubetalk.db"):
+    """
+    Fetch all unique thread IDs (namespaces) stored by LangGraph's SqliteSaver.
+    """
+    try:
+        # Connect to SQLite database
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # LangGraph stores checkpoints in 'checkpoints' table
+        cursor.execute("SELECT DISTINCT checkpoint_namespace FROM checkpoints;")
+        rows = cursor.fetchall()
+
+        # Extract thread IDs
+        thread_ids = [row[0] for row in rows if row[0] is not None]
+
+        conn.close()
+
+        print(f"✅ Found {len(thread_ids)} threads in database.")
+        return thread_ids
+
+    except Exception as e:
+        print("❌ Error while fetching thread IDs:", e)
+        return []
