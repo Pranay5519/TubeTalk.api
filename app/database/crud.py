@@ -41,10 +41,6 @@ def load_quiz_from_db(db: Session, thread_id: str) -> QuizList | None:
     quizzes = [PydanticQuiz(**qd) for qd in quiz_dicts]  # Pydantic objects
     return QuizList(quizzes=quizzes)
 
-
-
-
-
     return None
 def save_topics_to_db(db: Session, thread_id: str, topics: TopicsOutput):
     """
@@ -106,3 +102,41 @@ def load_summary_from_db(db: Session, thread_id: str) -> SummaryOutput | None:
         summary_dict = json.loads(summary_obj.summary)
         return SummaryOutput.model_validate(summary_dict)  # or model_validate_json(summary_obj.summary)
     return None
+
+
+import json
+from datetime import datetime
+from sqlalchemy.orm import Session
+from app.database.models import YouTubeData  # your video_url model
+
+def save_url_to_db(db: Session, thread_id: str, url: str):
+    """
+    Save a YouTube URL and thread_id into the database.
+    If the same thread_id already exists, skip saving.
+    """
+    existing_entry = db.query(YouTubeData).filter_by(thread_id=thread_id).first()
+
+    if not existing_entry:
+        new_entry = YouTubeData(
+            thread_id=thread_id,
+            url=url,
+            created_at=datetime.utcnow()
+        )
+        db.add(new_entry)
+        db.commit()
+        db.refresh(new_entry)
+        return new_entry
+    return existing_entry  # Return existing if already present
+
+def load_url_from_db(db: Session, thread_id: str):
+    """
+    Load a stored YouTube URL from the database by thread_id.
+
+    Args:
+        db (Session): Active SQLAlchemy session.
+        thread_id (str): Unique identifier for the video/thread.
+
+    Returns:
+        YouTubeData | None: The database entry if found, else None.
+    """
+    return db.query(YouTubeData).filter_by(thread_id=thread_id).first()

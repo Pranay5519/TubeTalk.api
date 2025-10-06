@@ -12,7 +12,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from app.database.database import Base, engine, SessionLocal
-from app.database.crud import save_summary_to_db, load_summary_from_db , load_topics_from_db , save_topics_to_db
+from app.database.crud import save_summary_to_db, load_summary_from_db , load_topics_from_db , save_topics_to_db , save_url_to_db
 import logging
 logger = logging.getLogger("uvicorn")
 
@@ -79,6 +79,7 @@ async def generate_or_load_summary(url: str,
             # Save new quiz to DB
             logger.info(f"Summary Saved for thread_id: {thread_id}")
             await run_in_threadpool(save_summary_to_db, db, thread_id, summary)
+            await run_in_threadpool(save_url_to_db, db, thread_id, url)
         except SQLAlchemyError as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Failed to save quiz: {str(e)}")

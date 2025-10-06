@@ -5,7 +5,7 @@ from app.services.topics_service import TopicGenerator
 from app.utils.utility_functions import load_transcript
 from app.core.auth import get_gemini_api_key
 from app.database.database import Base, engine, SessionLocal
-from app.database.crud import save_topics_to_db, load_topics_from_db
+from app.database.crud import save_topics_to_db, load_topics_from_db ,  save_url_to_db
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.exc import SQLAlchemyError
 import logging
@@ -55,6 +55,7 @@ async def generate_or_load_topics(
         try:
             topics_output = TopicsOutput(main_topics=response.main_topics)  # Convert to Pydantic model
             await run_in_threadpool(save_topics_to_db, db, thread_id, topics_output)
+            await run_in_threadpool(save_url_to_db, db, thread_id, url)
             logger.info(f"Topics saved for thread_id: {thread_id}")
             return topics_output  # Always return Pydantic model
         except SQLAlchemyError as e:

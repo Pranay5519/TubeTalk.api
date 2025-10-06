@@ -6,16 +6,39 @@ from langchain_core.messages import HumanMessage ,AIMessage , BaseMessage
 from app.utils.utility_functions import load_transcript
 from app.utils.rag_utility import text_splitter, generate_embeddings, save_embeddings_faiss, load_embeddings_faiss  
 from app.core.auth import get_gemini_api_key
+from fastapi.concurrency import run_in_threadpool
 import logging
-logger = logging.getLogger("uvicorn")
-router = APIRouter(prefix="/chatbot", tags=["chatbot"])
+from app.database.crud import save_url_to_db
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+from app.database.database import Base, engine, SessionLocal
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        
+        
+logger = logging.getLogger("uvicorn")
+router = APIRouter(prefix="/chatbot", tags=["chatbot"])        
 @router.post("/create_embeddings", response_model=EmbeddingResponse)
-def create_embeddings(request: YouTubeRequest):
+async def create_embeddings(
+    request: YouTubeRequest,
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_gemini_api_key)
+):
     """
     Create or load FAISS embeddings for a given YouTube transcript and thread_id.
     """
     try:
+        try:
+            logger.info("Saving url to Db")
+            await run_in_threadpool(save_url_to_db, db, request.thread_id, request.youtube_url)
+        except SQLAlchemyError as db_error:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Database error: {str(db_error)}")
         # 1. Check if embeddings already exist for this thread_id
         existing = load_embeddings_faiss(request.thread_id)
         if existing:
