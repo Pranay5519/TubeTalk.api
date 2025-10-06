@@ -92,27 +92,3 @@ def delete_all_threads_from_db():
         print("❌ Error while deleting threads:", e)        
         
         
-def get_all_thread_ids(db_path: str = "tubetalk.db"):
-    """
-    Fetch all unique thread IDs (namespaces) stored by LangGraph's SqliteSaver.
-    """
-    try:
-        # Connect to SQLite database
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
-        # LangGraph stores checkpoints in 'checkpoints' table
-        cursor.execute("SELECT DISTINCT checkpoint_namespace FROM checkpoints;")
-        rows = cursor.fetchall()
-
-        # Extract thread IDs
-        thread_ids = [row[0] for row in rows if row[0] is not None]
-
-        conn.close()
-
-        print(f"✅ Found {len(thread_ids)} threads in database.")
-        return thread_ids
-
-    except Exception as e:
-        print("❌ Error while fetching thread IDs:", e)
-        return []

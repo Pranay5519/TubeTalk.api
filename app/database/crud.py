@@ -140,3 +140,16 @@ def load_url_from_db(db: Session, thread_id: str):
         YouTubeData | None: The database entry if found, else None.
     """
     return db.query(YouTubeData).filter_by(thread_id=thread_id).first()
+
+
+
+from sqlalchemy.orm import Session
+from app.database.models import YouTubeData
+
+def get_all_thread_ids(db: Session):
+    """
+    Fetch all unique thread_ids stored in the video_url table using SQLAlchemy.
+    """
+    thread_objs = db.query(YouTubeData.thread_id).distinct().all()
+    thread_ids = [t[0] for t in thread_objs]
+    return thread_ids

@@ -2,26 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.auth import get_gemini_api_key
 from app.database.crud import load_url_from_db
 from sqlalchemy.orm import Session
-from app.database.database import Base, engine, SessionLocal
+from app.database.database import get_db
 
+router = APIRouter(prefix="/url", tags=["url"])
 
-
-# Dependency for DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-router = APIRouter(prefix="/get_url", tags=["url"])
-@router.post("/get_url")
+@router.get("/{thread_id}")
 async def get_url(
     thread_id: str,
     db: Session = Depends(get_db),
-    api_key: str = Depends(get_gemini_api_key)
-):
-    url_entry = load_url_from_db(db, thread_id)  # ✅ Pass db as first argument
+    ):
+    url_entry = load_url_from_db(db, thread_id)
 
     if not url_entry:
         raise HTTPException(status_code=404, detail="URL not found for this thread_id")
