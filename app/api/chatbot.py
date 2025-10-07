@@ -26,8 +26,7 @@ router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 @router.post("/create_embeddings", response_model=EmbeddingResponse)
 async def create_embeddings(
     request: YouTubeRequest,
-    db: Session = Depends(get_db),
-    api_key: str = Depends(get_gemini_api_key)
+    db: Session = Depends(get_db)
 ):
     """
     Create or load FAISS embeddings for a given YouTube transcript and thread_id.
@@ -43,7 +42,8 @@ async def create_embeddings(
         existing = load_embeddings_faiss(request.thread_id)
         if existing:
             return EmbeddingResponse(
-                message=f"⚡ Embeddings already exist for thread {request.thread_id}"
+                message=f"⚡ Embeddings already exist for thread {request.thread_id}",
+                type="loaded"
             )
     except FileNotFoundError:
         try:
@@ -61,7 +61,8 @@ async def create_embeddings(
             print("saved embeddings")
 
             return EmbeddingResponse(
-                message=f"✅ New embeddings created for thread {request.thread_id}"
+                message=f"✅ New embeddings created for thread {request.thread_id}",
+                type="created"
             )
 
         except Exception as inner_error:
