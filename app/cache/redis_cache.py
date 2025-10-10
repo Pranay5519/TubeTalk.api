@@ -29,6 +29,23 @@ def get_cache(key: str):
 
 
 def set_cache(key: str, value, ttl: int = 7200):
-    """Set a value in Redis cache with a time-to-live (TTL)."""
-    if redis_client:
+    """Set a value in Redis cache with a TTL, but skip if Redis memory is full."""
+    if not redis_client:
+        return
+
+    try:
+        # Get Redis memory usage info
+        info = redis_client.info(section="memory")
+        used_memory = info.get("used_memory", 0)
+        max_memory = info.get("maxmemory", 0)
+
+        # If maxmemory is set and used memory is above 95%, skip caching
+        if max_memory > 0 and used_memory / max_memory > 0.95:
+            logging.warning("⚠️ Redis memory nearly full. Skipping cache write.")
+            return
+
+        # Safe to cache
         redis_client.set(key, pickle.dumps(value), ex=ttl)
+
+    except redis.RedisError as e:
+        logging.error(f"❌ Redis error: {e}")
