@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.core.auth import get_gemini_api_key
 from app.database.crud import load_url_from_db
 from sqlalchemy.orm import Session
 from app.database.database import get_db

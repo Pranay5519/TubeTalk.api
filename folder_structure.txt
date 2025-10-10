@@ -8,6 +8,11 @@ tubetalk.api/
     lib_size.py
     requirements.txt
     test_api.py
+    test_api_chatbot.py
+    test_db.py
+    tubetalk.db
+    tubetalk.db-shm
+    tubetalk.db-wal
     app/
         main.py
         __init__.py
@@ -17,12 +22,20 @@ tubetalk.api/
             summary.py
             topics.py
             __init__.py
+        cache/
+            redis_cache.py
         core/
             auth.py
             __init__.py
+        database/
+            crud.py
+            database.py
+            models.py
+            __init__.py
         middleware/
             logging_middleware.py
-        models/
+            __init__.py
+        pydantic_models/
             chatbot_model.py
             quiz_model.py
             summay_model.py
@@ -39,9 +52,21 @@ tubetalk.api/
             utility_functions.py
             __init__.py
     faiss_indexes/
+        black/
+            index.faiss
+            index.pkl
         chatbot1/
             index.faiss
             index.pkl
         chatbot2/
+            index.faiss
+            index.pkl
+        roadmap/
+            index.faiss
+            index.pkl
+        test1/
+            index.faiss
+            index.pkl
+        test_thread_1/
             index.faiss
             index.pkl
