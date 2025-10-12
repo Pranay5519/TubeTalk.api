@@ -5,6 +5,7 @@ from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from app.cache.redis_cache import get_cache, set_cache
 import logging
+from datetime import datetime
 logger = logging.getLogger("uvicorn")
 def text_splitter(transcript: str):
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
@@ -41,7 +42,7 @@ def load_embeddings_faiss(thread_id: str, save_dir: str = "faiss_indexes"):
 
     retriever = get_cache(cache_key)
     if retriever:
-        logger.info(f"⚡ Retriever for {thread_id} loaded from Redis cache")
+        logger.info(f"⚡ Retriever for {thread_id} loaded from Redis cache {datetime.now()}")
         #print(f"⚡ Retriever for {thread_id} loaded from Redis cache")
         return retriever
 
@@ -57,7 +58,7 @@ def load_embeddings_faiss(thread_id: str, save_dir: str = "faiss_indexes"):
         )
         retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 3})
         set_cache(cache_key, retriever)
-        logger.info(f"✅ Cached retriever for {thread_id}")
+        logger.info(f"✅(set_cache) Cached retriever for -{thread_id}--{datetime.now()}")
         return retriever
     else:
         raise FileNotFoundError(f"❌ No FAISS index found for thread_id={thread_id}")
