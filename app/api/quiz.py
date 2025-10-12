@@ -5,7 +5,7 @@ from app.services.quiz_service import QuizGenerator
 from app.utils.utility_functions import load_transcript
 from app.core.auth import get_gemini_api_key
 from app.database.database import Base, engine, SessionLocal
-from app.database.crud import save_quiz_to_db, load_quiz_from_db
+from app.database.crud import save_quiz_to_db, load_quiz_from_db , save_url_to_db
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -51,6 +51,8 @@ async def generate_or_load_quiz(
         try:
             # Save new quiz to DB
             await run_in_threadpool(save_quiz_to_db, db, thread_id, quiz)
+            # save url to db 
+            await run_in_threadpool(save_url_to_db, db, thread_id, url)
         except SQLAlchemyError as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Failed to save quiz: {str(e)}")

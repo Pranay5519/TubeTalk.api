@@ -21,3 +21,4 @@ class YouTubeRequest(BaseModel):
 
 class EmbeddingResponse(BaseModel):
     message: str
+    type : str

@@ -24,4 +24,12 @@ class Topics(Base):
     id = Column(Integer, primary_key=True, index=True)
     thread_id = Column(String, index=True)
     output_json = Column(Text)
-    created_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.now())
+    
+class YouTubeData(Base):
+    __tablename__ = "video_url"
+
+    id = Column(Integer, primary_key=True, index=True)
+    thread_id = Column(String, index=True, nullable=False)
+    url = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.now())

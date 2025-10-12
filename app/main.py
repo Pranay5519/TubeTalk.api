@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api import topics, summary, quiz, chatbot
+from app.api import topics, summary, quiz, chatbot , url , get_thread_id , delete_threads
 from app.middleware.logging_middleware import LoggingMiddleware
 import logging
 
@@ -40,3 +40,10 @@ app.include_router(topics.router, tags=["topics"])
 app.include_router(summary.router, tags=["summary"])
 app.include_router(quiz.router, tags=["quiz"])
 app.include_router(chatbot.router, tags=["chatbot"])
+app.include_router(url.router , tags=['url'])
+app.include_router(get_thread_id.router , tags=['thread_ids'])
+app.include_router(delete_threads.router , tags=['del_threads'])
+
+@app.get("/")
+def root():
+    return {"message": "Welcome to TubeTalk.ai API!"}

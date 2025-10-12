@@ -70,3 +70,5 @@ class ChatbotService:
         graph.add_edge("chat_node", END)
 
         return graph.compile(checkpointer=self.checkpointer)
+
+    
