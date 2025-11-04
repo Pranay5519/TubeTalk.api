@@ -24,7 +24,7 @@ uvicorn_access_logger.setLevel(logging.INFO)
 # ----------------------------
 app = FastAPI(
     title="TubeTalk.ai API",
-    description="API for Quiz Generator, Summary Generator, RAG Chatbot, and Topics Generator",
+    description="API pfor Quiz Generator, Summary Generator, RAG Chatbot, and Topics Generator",
     version="1.0.0"
 )
 
