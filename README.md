@@ -145,7 +145,7 @@ uvicorn app.main:app --reload
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/chatbot/query` | Send a query to the RAG-based chatbot and receive a contextual answer |
+| `POST` | `/chatbot/chat` | Send a query to the RAG-based chatbot and receive a contextual answer |
 
 ---
 
@@ -155,7 +155,7 @@ uvicorn app.main:app --reload
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/summary/generate` | Generate a summarized version of provided content |
+| `POST` | `/summary/get_summary` | Generate a summarized version of provided content |
 
 ---
 
@@ -165,8 +165,8 @@ uvicorn app.main:app --reload
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/quiz/generate` | Generate a quiz based on text, topics, or video transcript |
-| `GET` | `/quiz/{quiz_id}` | Retrieve details of a specific quiz |
+| `POST` | `/quiz/generate_quiz` | Generate a quiz based on text, topics, or video transcript |
+
 
 ---
 
@@ -176,7 +176,7 @@ uvicorn app.main:app --reload
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/topics/generate` | Extract key topics or concepts from text or transcript |
+| `POST` | `/topics/get_topics` | Extract key topics or concepts from text or transcript |
 
 ---
 
