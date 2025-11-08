@@ -1,30 +1,75 @@
-"""
-from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api.proxies import WebshareProxyConfig
-import os
-from dotenv import load_dotenv
+from typing import TypedDict, Annotated
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, BaseMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+from langgraph.checkpoint.memory import MemorySaver
+from app.pydantic_models.chatbot_model import AnsandTime
+import sqlite3 
+from langgraph.checkpoint.sqlite import SqliteSaver
+# ---------- Chat State ----------
+class ChatState(TypedDict):
+    messages: Annotated[list[BaseMessage], add_messages]
 
-load_dotenv()
+class ChatbotService:
+    """
+    Chatbot service that uses Gemini 2.5 Flash with structured output.
+    Keeps chat state in memory and answers questions using transcript context.
+    """
 
-username = os.getenv('PROXY_USERNAME')
-password = os.getenv('PROXY_PASSWORD')
+    def __init__(self, api_key: str, model_name: str = "gemini-2.5-flash", temperature: float = 0):
+        self.api_key = api_key
+        self.model_name = model_name
+        self.temperature = temperature
 
-# ✅ Create the proxy config correctly (no host/port)
-proxy_config = WebshareProxyConfig(
-    proxy_username=username,
-    proxy_password=password
-)
+        # LLM with API key
+        self.llm = ChatGoogleGenerativeAI(model=self.model_name,
+                                          temperature=self.temperature,
+                                          api_key=self.api_key)
 
-# ✅ Create API object with the proxy config
-ytt_api = YouTubeTranscriptApi(proxy_config=proxy_config)
+        # Structured output
+        self.structured_model = self.llm.with_structured_output(AnsandTime)
 
-# ✅ Fetch transcript
-transcript = ytt_api.fetch("s3KnSb9b4Pk",languages = ['en','hi']).snippets
-print(transcript)
+        # System message
+        self.system_message = SystemMessage(
+            content="You are the YouTuber from the video, answer using only transcript context."
+        )
 
-"""
+       # SQLite checkpointer (persistent memory)
+        conn = sqlite3.connect(database="tubetalk.db", check_same_thread=False)
+        self.checkpointer = SqliteSaver(conn=conn)
 
-from app.utils.utility_functions import load_transcript
+    def _chat_node(self, state: ChatState, retriever):
+        """
+        Internal node: retrieves context and generates AI response.
+        """
+        user_question = state["messages"][-1].content
+        retrieved_chunks = retriever.invoke(user_question)
 
-transcritps = load_transcript('https://youtu.be/HcA3YIWoM0w')
-print(transcritps)
+        context = "\n\n".join(doc.page_content for doc in retrieved_chunks)
+
+        messages = [
+            self.system_message,
+            SystemMessage(content=f"Transcript:\n{context}"),
+            HumanMessage(content=user_question),
+        ]
+
+        response = self.structured_model.invoke(messages)
+        ai_text = f"{' '.join(response.answer)}\nTimestamp: {response.timestamps}"
+
+        return {"messages": [state["messages"][-1], AIMessage(content=ai_text)]}
+
+    def build_chatbot(self, retriever):
+        """
+        Build and return the chatbot graph with memory checkpointing.
+        """
+        graph = StateGraph(ChatState)
+        #add Node
+        graph.add_node("chat_node", lambda state: self._chat_node(state, retriever))
+        #edges
+        graph.add_edge(START, "chat_node")
+        graph.add_edge("chat_node", END)
+
+        return graph.compile(checkpointer=self.checkpointer)
+
+    

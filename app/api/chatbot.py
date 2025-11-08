@@ -92,9 +92,9 @@ def chat(request: ChatRequest, api_key : str = Depends(get_gemini_api_key)):
         )
         logger.info(f'response generated-{datetime.datetime.now()}')
         
-        chat_state = chatbot.get_state(
-            config={"configurable": {"thread_id": request.thread_id}}
-        )
+        #chat_state = chatbot.get_state(
+        #    config={"configurable": {"thread_id": request.thread_id}}
+        #)
         all_messages = chatbot.get_state(config={'configurable': {'thread_id': request.thread_id}}).values['messages']
         ai_message = response["messages"][-1].content
         #print(response)

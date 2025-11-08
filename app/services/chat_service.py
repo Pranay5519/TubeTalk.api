@@ -32,7 +32,7 @@ class ChatbotService:
 
         # System message
         self.system_message = SystemMessage(
-            content="You are the YouTuber from the video, answering using only transcript context."
+            content="You are the YouTuber from the video, answer using only transcript context."
         )
 
        # SQLite checkpointer (persistent memory)
@@ -64,8 +64,9 @@ class ChatbotService:
         Build and return the chatbot graph with memory checkpointing.
         """
         graph = StateGraph(ChatState)
-
+        #add Node
         graph.add_node("chat_node", lambda state: self._chat_node(state, retriever))
+        #edges
         graph.add_edge(START, "chat_node")
         graph.add_edge("chat_node", END)
 

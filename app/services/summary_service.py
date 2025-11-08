@@ -37,7 +37,7 @@ class SummaryGenerator:
 
     def _build_chain(self) -> RunnableSequence:
         """
-        Internal method to build the summarizer chain using RunnableSequence (LCEL).
+        Internal method to build the summarizer chain using RunnableSequence.
         """
         prompt = ChatPromptTemplate.from_messages([
             ("system", self.system_message),

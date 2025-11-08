@@ -46,10 +46,11 @@ async def generate_or_load_topics(
     if not captions:
         raise HTTPException(status_code=404, detail="No transcript found for this video.")
     
-    segments = analyzer.parse_transcript(captions)
-    formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
+    # No need to parse transcript into segments it does not make much difference in output
+    #segments = analyzer.parse_transcript(captions)
+    #formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
 
-    response = await analyzer.extract_topics(" ".join(formatted))  # async call
+    response = await analyzer.extract_topics(captions)  # async call
 
     if response:
         try:

@@ -80,8 +80,15 @@ class TopicGenerator:
     # -------------------------
     # Transcript Parsing
     # -------------------------
+    
+    # No use of these functions , it does not make much difference in output
     def parse_transcript(self, transcript: str) -> List[TimestampedSegment]:
-        """Split transcript into timestamped segments"""
+        """
+        Input --> "AI helps in automation (23.5)".
+       Output --> [
+        TimestampedSegment(text="AI helps in automation", start_time=23.5, end_time=45.2),
+        TimestampedSegment(text="Machine learning basics", start_time=45.2, end_time=60.1),
+        ]"""
         segments = []
         pattern = r"(.*?)\((\d+\.?\d*)\)"
         matches = re.findall(pattern, transcript)
@@ -124,19 +131,25 @@ class TopicGenerator:
 # -------------------------
 # Example Runner
 # -------------------------
-"""if __name__ == "__main__":
-    analyzer = TopicGenerator()
+import os
+if __name__ == "__main__":
+    analyzer = TopicGenerator(os.environ["GOOGLE_API_KEY"])
 
-    captions = load_transcript("https://youtu.be/ikzN6byFNWw")
+    captions = load_transcript("https://youtu.be/vLES-g5Va3w")
     if captions:
         segments = analyzer.parse_transcript(captions)
+        print("====================================================")
+        print(segments)
         formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
+        print("====================================================")
+        print(formatted)
         response = analyzer.extract_topics(" ".join(formatted))
-
+        print("====================================================")
+        print(response)
         # Pretty print
         for i, topic in enumerate(response.main_topics, 1):
             print(f"\n🎯 Main Topic {i}: {topic.topic}  ⏰ {topic.timestamp}")
             print("----------------------------------------------------")
             for j, sub in enumerate(topic.subtopics, 1):
                 print(f"   🔹 Subtopic {i}.{j}: {sub.subtopic}  ⏰ {sub.timestamp} {sub.importance}")
-            print("====================================================")"""
+            print("====================================================")
