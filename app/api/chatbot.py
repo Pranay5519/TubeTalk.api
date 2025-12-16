@@ -112,4 +112,4 @@ def get_history(thread_id : str, api_key: str = Depends(get_gemini_api_key)):
     chatbot_service = ChatbotService(api_key=api_key)
     chatbot = chatbot_service.build_chatbot(retriever)
     all_messages = chatbot.get_state(config={'configurable': {'thread_id': thread_id}}).values['messages']
-    return all_messages
+    return all_messages 

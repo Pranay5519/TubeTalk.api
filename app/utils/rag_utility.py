@@ -21,8 +21,6 @@ def generate_embeddings(chunks):
     )
     return FAISS.from_documents(chunks, embeddings)
 
-
-
 def retriever_docs(vector_store):
     return vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 3})
 

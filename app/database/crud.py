@@ -6,7 +6,6 @@ from app.pydantic_models.topics_model import TopicsOutput
 from app.pydantic_models.summay_model import SummaryOutput
 import json
 
-
 def save_quiz_to_db(db: Session, thread_id: str, quiz_list: QuizList):
     """
     Save a list of quizzes into the database.
