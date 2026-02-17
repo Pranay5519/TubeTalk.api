@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.api import topics, summary, quiz, chatbot , url , get_thread_id , delete_threads
 from app.middleware.logging_middleware import LoggingMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 # ----------------------------
@@ -32,7 +33,13 @@ app = FastAPI(
 # Add logging middleware
 # ----------------------------
 app.add_middleware(LoggingMiddleware)
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 # ----------------------------
 # Include routers
 # ----------------------------

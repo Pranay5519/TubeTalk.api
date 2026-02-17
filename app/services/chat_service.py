@@ -8,8 +8,10 @@ from app.pydantic_models.chatbot_model import AnsandTime
 import sqlite3 
 from langgraph.checkpoint.sqlite import SqliteSaver
 # ---------- Chat State ----------
+
+# ---------- Chat State ----------
 class ChatState(TypedDict):
-    messages: Annotated[list[BaseMessage], add_messages]
+    messages: Annotated[list[BaseMessage], add_messages] # Annotated with add_messages to keep appending messages without overwriting
 
 class ChatbotService:
     """
@@ -40,24 +42,24 @@ class ChatbotService:
         self.checkpointer = SqliteSaver(conn=conn)
 
     def _chat_node(self, state: ChatState, retriever):
-        """
-        Internal node: retrieves context and generates AI response.
-        """
+
         user_question = state["messages"][-1].content
         retrieved_chunks = retriever.invoke(user_question)
 
         context = "\n\n".join(doc.page_content for doc in retrieved_chunks)
 
-        messages = [
-            self.system_message,
-            SystemMessage(content=f"Transcript:\n{context}"),
-            HumanMessage(content=user_question),
-        ]
+        messages = (
+            [self.system_message,
+            SystemMessage(content=f"Transcript:\n{context}")]
+            + state["messages"]
+        )
 
         response = self.structured_model.invoke(messages)
-        ai_text = f"{' '.join(response.answer)}\nTimestamp: {response.timestamps}"
 
-        return {"messages": [state["messages"][-1], AIMessage(content=ai_text)]}
+        ai_text = f"{' '.join(response.answer)}\nTimestamp: {response.timestamps}\nCode: {response.code}"
+
+        return {"messages": [AIMessage(content=ai_text)]}
+
 
     def build_chatbot(self, retriever):
         """
@@ -71,5 +73,3 @@ class ChatbotService:
         graph.add_edge("chat_node", END)
 
         return graph.compile(checkpointer=self.checkpointer)
-
-    
