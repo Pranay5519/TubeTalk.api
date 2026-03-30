@@ -5,18 +5,21 @@ class AnsandTime(BaseModel):
     timestamps: float = Field(description="The time (in seconds) from where the answer was taken")
     code : str = Field(description="The code snippet related to the answer, if any" ,default=None)
     
+# chat endpoint input schema
 class ChatRequest(BaseModel):
     thread_id: str
     question: str
 
+#chat endoints outoput schema
 class ChatResponse(BaseModel):
     answer: str
     message_history : list[BaseMessage]
 
+# create embeddings  input schema
 class YouTubeRequest(BaseModel):
     thread_id: str
     youtube_url: str
-
+# create embeddings  outupt schema
 class EmbeddingResponse(BaseModel):
     message: str
     type : str

@@ -1,6 +1,7 @@
 from youtube_transcript_api import YouTubeTranscriptApi
 import re
 from youtube_transcript_api.proxies import WebshareProxyConfig
+
 def load_transcript(url: str) -> str | None:
  
     pattern = r'(?:v=|\/)([0-9A-Za-z_-]{11})'
@@ -14,6 +15,7 @@ def load_transcript(url: str) -> str | None:
         except Exception as e:
             print(f"❌ Error fetching transcript: {e}")
             return None
+
 """        
 def load_transcript(url: str) -> str | None:
     pattern = r'(?:v=|\/)([0-9A-Za-z_-]{11})'

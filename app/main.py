@@ -33,6 +33,7 @@ app = FastAPI(
 # Add logging middleware
 # ----------------------------
 app.add_middleware(LoggingMiddleware)
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins
@@ -40,6 +41,7 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # Allows all headers
 )
+
 # ----------------------------
 # Include routers
 # ----------------------------

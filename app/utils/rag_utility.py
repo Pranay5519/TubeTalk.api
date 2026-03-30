@@ -1,68 +1,158 @@
 import os
+import re
 import shutil
-import sqlite3 
-import datetime
-from langchain_huggingface import HuggingFaceEmbeddings
+import sqlite3
+from youtube_transcript_api import YouTubeTranscriptApi
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langsmith import traceable
+from dotenv import load_dotenv
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_google_genai import ChatGoogleGenerativeAI
 from app.cache.redis_cache import get_cache, set_cache
 import logging
-from datetime import datetime
+
+load_dotenv()
 logger = logging.getLogger("uvicorn")
+
+# ──────────────────────────────────────────────
+# 1. Transcript Loader
+# ──────────────────────────────────────────────
+def load_transcript(url: str) -> str | None:
+
+    pattern = r'(?:v=|\/)([0-9A-Za-z_-]{11})'
+    match = re.search(pattern, url)
+    if match:
+        video_id = match.group(1)
+        try:
+            captions = YouTubeTranscriptApi().fetch(video_id, languages=['en', 'hi']).snippets
+            data = [f"{item.text} ({item.start})" for item in captions]
+            return " ".join(data)
+        except Exception as e:
+            print(f" Error fetching transcript: {e}")
+            return None
+
+
+# ──────────────────────────────────────────────
+# 2. Text Splitter
+# ──────────────────────────────────────────────
 def text_splitter(transcript: str):
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     return splitter.create_documents([transcript])
 
+# ──────────────────────────────────────────────
+# 3. Build Simple Cosine Similarity Retriever
+# ──────────────────────────────────────────────
+EMBEDDING_MODEL = "gemini-embedding-001"
 
-def generate_embeddings(chunks):
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
-        model_kwargs={"device": "cpu"}
+def build_retriever(chunks, thread_id, *, top_n: int = 3, doc_language: str = "English"):
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model=EMBEDDING_MODEL,
+        google_api_key=os.getenv("GOOGLE_API_KEY")
     )
-    return FAISS.from_documents(chunks, embeddings)
 
-def retriever_docs(vector_store):
-    return vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 3})
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 
+    base_dir = "faiss_indexes"
+    os.makedirs(base_dir, exist_ok=True)
+    index_path = os.path.join(base_dir, thread_id)
 
-def save_embeddings_faiss(thread_id: str, vector_store, save_dir: str = "faiss_indexes"):
-    """
-    Save FAISS vector store locally for a given thread_id.
-    """
-    # Create the directory if it doesn't exist
-    os.makedirs(save_dir, exist_ok=True)
-    # Build the save path
-    save_path = os.path.join(save_dir, thread_id)
-    # Save the vector store
-    vector_store.save_local(save_path)
-    print(f"✅ Embeddings for {thread_id} saved at {save_path}")
+    def build_vector_store(docs):
+        if os.path.exists(index_path):
+            print(f"📁 Loading existing FAISS index from: {index_path}")
+            return FAISS.load_local(
+                index_path, embeddings, allow_dangerous_deserialization=True
+            ), "loaded_from_cache"
+        else:
+            if not docs:
+                raise FileNotFoundError(f"❌ No FAISS index found for thread_id={thread_id}")
+            print("🧠 Requesting Gemini to create new embeddings...")
+            vs = FAISS.from_documents(docs, embeddings)
+            vs.save_local(index_path)
+            print(f"💾 FAISS index saved to: {index_path}")
+            return vs, "newly_created"
 
+    vector_store, _ = build_vector_store(chunks)
 
-def load_embeddings_faiss(thread_id: str, save_dir: str = "faiss_indexes"):
+    @traceable(name="Translated_Cosine_Retriever", metadata={"embedding_model": EMBEDDING_MODEL, "index_path": index_path})
+    def retrieve(query: str):
+        search_query = query
+
+        if doc_language.lower() == "hindi":
+            print(f"🇮🇳 Hindi Document Detected: Optimizing query...")
+
+            translation_prompt = ChatPromptTemplate.from_template(
+                "Rewrite the following question into a single optimized search query in Hindi. "
+                "Use transliteration for technical terms. Output ONLY the query.\n\n"
+                "Original Question: {question}"
+            )
+
+            chain = translation_prompt | llm | StrOutputParser()
+
+            # Use safety checks for the LLM response
+            try:
+                response = chain.invoke({"question": query}).strip()
+                if response:
+                    search_query = response
+                    print(f"🔍 Optimized Hindi Query: {search_query}")
+                else:
+                    print("⚠️ LLM returned empty string. Falling back.")
+            except Exception as e:
+                print(f"⚠️ Translation failed: {e}. Using original query.")
+
+        # Final Guardrail: Ensure search_query is NOT empty
+        if not search_query or not search_query.strip():
+            search_query = query
+
+        docs = vector_store.similarity_search(search_query, k=top_n)
+        return docs
+
+    return retrieve
+
+# ──────────────────────────────────────────────
+# 4. One-shot pipeline helper
+# ──────────────────────────────────────────────
+def create_retriever_from_url(youtube_url: str, doc_language: str, thread_id: str):
+    """URL → transcript → chunks → retrieve callable"""
+
+    print("📥 Fetching transcript …")
+    transcript = load_transcript(youtube_url)
+    if not transcript:
+        return None
+
+    print("✂️  Splitting into chunks …")
+    chunks = text_splitter(transcript)
+
+    print(f"🔍 Building Cosine Similarity retriever ({doc_language}) …")
+    retriever = build_retriever(chunks, thread_id=thread_id, doc_language=doc_language)
+
+    print("✅ Retriever ready.")
+    return retriever 
+
+# ──────────────────────────────────────────────
+# FastAPI Helpers for backward compatibility
+# ──────────────────────────────────────────────
+def check_index_exists(thread_id: str) -> bool:
+    base_dir = "faiss_indexes"
+    index_path = os.path.join(base_dir, thread_id)
+    return os.path.exists(index_path)
+
+def load_existing_retriever(thread_id: str, doc_language: str = "English"):
     cache_key = f"retriever:{thread_id}"
+    cached_retriever = get_cache(cache_key)
+    if cached_retriever:
+        logger.info(f"⚡ Retriever for {thread_id} loaded from Redis cache")
+        return cached_retriever
 
-    retriever = get_cache(cache_key)
-    if retriever:
-        logger.info(f"⚡ Retriever for {thread_id} loaded from Redis cache {datetime.now()}")
-        #print(f"⚡ Retriever for {thread_id} loaded from Redis cache")
-        return retriever
-
-    load_path = os.path.join(save_dir, thread_id)
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
-        model_kwargs={"device": "cpu"}
-    )
-
-    if os.path.exists(load_path):
-        vector_store = FAISS.load_local(
-            load_path, embeddings, allow_dangerous_deserialization=True
-        )
-        retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 3})
-        set_cache(cache_key, retriever)
-        logger.info(f"✅(set_cache) Cached retriever for -{thread_id}--{datetime.now()}")
-        return retriever
-    else:
+    if not check_index_exists(thread_id):
         raise FileNotFoundError(f"❌ No FAISS index found for thread_id={thread_id}")
+    
+    retriever = build_retriever(None, thread_id=thread_id, doc_language=doc_language)
+    set_cache(cache_key, retriever)
+    logger.info(f"✅ Cached retriever for {thread_id}")
+    return retriever
 
 def clear_faiss_indexes(base_dir: str = "faiss_indexes"):
     if os.path.exists(base_dir):
@@ -75,9 +165,6 @@ def clear_faiss_indexes(base_dir: str = "faiss_indexes"):
         print(f"✅ Cleared all contents inside: {base_dir}")
     
 def delete_all_threads_from_db():
-    """
-    Delete all chat threads & related data from database.
-    """
     try:
         conn = sqlite3.connect(r"tubetalk.db")
         cursor = conn.cursor()
@@ -89,6 +176,4 @@ def delete_all_threads_from_db():
         conn.close()
         print("✅ All threads deleted successfully.")
     except Exception as e:
-        print("❌ Error while deleting threads:", e)        
-        
-        
+        print("❌ Error while deleting threads:", e)
