@@ -1,6 +1,6 @@
 import os
 import redis
-import pickle
+import cloudpickle
 import logging
 from dotenv import load_dotenv
 
@@ -25,7 +25,7 @@ def get_cache(key: str):
     if not redis_client:
         return None
     data = redis_client.get(key)
-    return pickle.loads(data) if data else None
+    return cloudpickle.loads(data) if data else None
 
 
 def set_cache(key: str, value, ttl: int = 7200):
@@ -45,7 +45,7 @@ def set_cache(key: str, value, ttl: int = 7200):
             return
 
         # Safe to cache
-        redis_client.set(key, pickle.dumps(value), ex=ttl)
+        redis_client.set(key, cloudpickle.dumps(value), ex=ttl)
 
     except redis.RedisError as e:
         logging.error(f"❌ Redis error: {e}")

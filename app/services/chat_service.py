@@ -113,8 +113,9 @@ class ChatbotService:
         messages = state["messages"]
         user_question = messages[-1].content
 
-        # Only contextualize if there IS prior history (not the first question)
-        history = messages[:-1]   # everything except the latest question
+        # Use ONLY the last 6 messages for contextualization (to save tokens)
+        history = messages[:-1][-6:]
+        
         if not history:
             return user_question  # first question — already standalone
 
@@ -151,13 +152,12 @@ class ChatbotService:
         retrieved_chunks = retriever(search_query)
         context = "\n\n".join(doc.page_content for doc in retrieved_chunks)
 
-        messages = (
-            [
-                self.system_message,
-                SystemMessage(content=f"Transcript context:\n{context}"),
-            ]
-            + state["messages"]
-        )
+        # ── Step 3: Build optimized prompt (No raw history, tokens saved! 🚀) ──
+        messages = [
+            self.system_message,
+            SystemMessage(content=f"Transcript context:\n{context}"),
+            HumanMessage(content=search_query),  # Rewritten search query
+        ]
 
         response: AnsandTime = self.structured_model.invoke(messages)
 

@@ -24,6 +24,8 @@ def get_db():
 logger = logging.getLogger("uvicorn")
 router = APIRouter(prefix="/chatbot", tags=["chatbot"]) 
 
+
+
 # create-embeddings       
 @router.post("/create_embeddings", response_model=EmbeddingResponse)
 async def create_embeddings(
@@ -92,9 +94,16 @@ def chat(request: ChatRequest, api_key : str = Depends(get_gemini_api_key)):
         logger.info(f'chatbot service-{datetime.datetime.now()}')
         
         chatbot = chatbot_service.build_chatbot(retriever)
+        
+        # LangChain/LangGraph config with custom LangSmith run_name
+        config = {
+            "configurable": {"thread_id": request.thread_id},
+            "run_name": request.thread_id
+        }
+
         response = chatbot.invoke(
             {"messages": [HumanMessage(content=request.question)]},
-            config={"configurable": {"thread_id": request.thread_id}}
+            config=config
         )
         logger.info(f'response generated-{datetime.datetime.now()}')
         

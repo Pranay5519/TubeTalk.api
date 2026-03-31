@@ -56,22 +56,43 @@ def build_retriever(chunks, thread_id, *, top_n: int = 3, doc_language: str = "E
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 
     base_dir = "faiss_indexes"
-    os.makedirs(base_dir, exist_ok=True)
     index_path = os.path.join(base_dir, thread_id)
+    cache_key = f"faiss_index:{thread_id}"
 
     def build_vector_store(docs):
+        # 1. Try Redis cache first (serialized bytes)
+        cached_data = get_cache(cache_key)
+        if cached_data:
+            logger.info(f"🚀 Loading FAISS index for {thread_id} from Redis cache")
+            return FAISS.deserialize_from_bytes(
+                cached_data, embeddings, allow_dangerous_deserialization=True
+            ), "loaded_from_redis"
+
+        # 2. Fallback to Disk
         if os.path.exists(index_path):
-            print(f"📁 Loading existing FAISS index from: {index_path}")
-            return FAISS.load_local(
+            logger.info(f"📁 Loading existing FAISS index from disk: {index_path}")
+            vs = FAISS.load_local(
                 index_path, embeddings, allow_dangerous_deserialization=True
-            ), "loaded_from_cache"
+            )
+            # Store in Redis for next time
+            try:
+                set_cache(cache_key, vs.serialize_to_bytes())
+                logger.info(f"✅ Cached {thread_id} to Redis")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to cache FAISS to Redis: {e}")
+            return vs, "loaded_from_disk"
         else:
             if not docs:
                 raise FileNotFoundError(f"❌ No FAISS index found for thread_id={thread_id}")
-            print("🧠 Requesting Gemini to create new embeddings...")
+            logger.info("🧠 Requesting Gemini to create new embeddings...")
             vs = FAISS.from_documents(docs, embeddings)
             vs.save_local(index_path)
-            print(f"💾 FAISS index saved to: {index_path}")
+            # Store in Redis
+            try:
+                set_cache(cache_key, vs.serialize_to_bytes())
+                logger.info(f"💾 FAISS index saved and cached: {thread_id}")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to cache FAISS to Redis: {e}")
             return vs, "newly_created"
 
     vector_store, _ = build_vector_store(chunks)
@@ -140,19 +161,16 @@ def check_index_exists(thread_id: str) -> bool:
     return os.path.exists(index_path)
 
 def load_existing_retriever(thread_id: str, doc_language: str = "English"):
-    cache_key = f"retriever:{thread_id}"
-    cached_retriever = get_cache(cache_key)
-    if cached_retriever:
-        logger.info(f"⚡ Retriever for {thread_id} loaded from Redis cache")
-        return cached_retriever
-
+    """
+    Load an existing retriever for a thread_id.
+    Redis caching is handled internally by build_retriever (caching vectors, not functions).
+    """
     if not check_index_exists(thread_id):
+        # We check disk existence first as a source of truth
         raise FileNotFoundError(f"❌ No FAISS index found for thread_id={thread_id}")
     
-    retriever = build_retriever(None, thread_id=thread_id, doc_language=doc_language)
-    set_cache(cache_key, retriever)
-    logger.info(f"✅ Cached retriever for {thread_id}")
-    return retriever
+    # Just call build_retriever with None for docs; it will check Redis/Disk
+    return build_retriever(None, thread_id=thread_id, doc_language=doc_language)
 
 def clear_faiss_indexes(base_dir: str = "faiss_indexes"):
     if os.path.exists(base_dir):

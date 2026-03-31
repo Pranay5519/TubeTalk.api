@@ -2,7 +2,12 @@ from fastapi import FastAPI
 from app.api import topics, summary, quiz, chatbot , url , get_thread_id , delete_threads
 from app.middleware.logging_middleware import LoggingMiddleware
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+import os
 import logging
+
+# Load environment variables (for LangSmith tracing)
+load_dotenv()
 
 # ----------------------------
 # Logging setup
