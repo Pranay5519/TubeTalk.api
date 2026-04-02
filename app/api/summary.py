@@ -32,58 +32,50 @@ async def generate_or_load_summary(url: str,
                                 thread_id: str,
                                 db: Session = Depends(get_db),
                                 api_key: str = Depends(get_gemini_api_key)):
-    """Generate structured topics and summary from YouTube video URL"""
+    """Generate structured topics and summary from YouTube video URL using One-Pass optimization"""
     
+    # 1. Check for existing data
     existing_summary = load_summary_from_db(db, thread_id)
     existing_topics = load_topics_from_db(db, thread_id)
-    if existing_summary :
-        logger.info(f"Returning existing summary for thread_id: {thread_id}") 
-        return {
-        "main_summary": existing_summary.main_summary
-    }
     
-    logger.info(f"No existing summary for thread_id: {thread_id}, generating new one.")
-    # No existing summary, generate new one
+    if existing_summary:
+        logger.info(f"🚀 Returning existing summary for thread_id: {thread_id}") 
+        return {"main_summary": existing_summary.main_summary}
     
-    topics_generator = TopicGenerator(api_key=api_key)
+    # 2. If missing, generate everything in "One Pass"
+    logger.info(f"🧠 No existing data for {thread_id}, starting One-Pass Generation.")
     summary_generator = SummaryGenerator(api_key=api_key)
 
     captions = load_transcript(url)
     if not captions:
-        raise HTTPException(status_code=404, detail="No transcript found for this video.")
+        raise HTTPException(status_code=404, detail="❌ No transcript found for this video.")
     
+    # Optimization: One-Pass (Topic + Summary in one call)
     if existing_topics:
-        logger.info(f"Using existing topics for thread_id: {thread_id}") 
-        topics = existing_topics.main_topics
-    # Parse transcript into segments
+        logger.info(f"📁 Using existing topics to generate summary for {thread_id}")
+        summary = await summary_generator.generate_summary(captions, str(existing_topics.main_topics))
     else:
-        logger.info(f"No existing topics for thread_id: {thread_id}, generating new one.") 
-        segments = topics_generator.parse_transcript(captions)
-        formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
-        # Extract topics
-        response = await topics_generator.extract_topics(" ".join(formatted))
-        topics = response.main_topics
-        if response:
-            try:
-                topics_outupt = TopicsOutput(main_topics=topics)
-                await run_in_threadpool(save_topics_to_db , db , thread_id , topics_outupt)
-                logger.info(f"Topics saved  for thread_id : {thread_id}")
-            except SQLAlchemyError as e:
-                db.rollback()
-                raise HTTPException(status_code=500, detail=f"Failed to save topics: {str(e)}")
-            
-    # Generate summary (await because it's async)
-    summary = await summary_generator.generate_summary(captions, str(topics))
-    if summary:
+        # PURE One-Pass Extraction
+        combined_result = await summary_generator.generate_topics_and_summary(captions)
+        topics_output = combined_result.topics
+        summary = combined_result.summary
+
+        # Cache Topics immediately
         try:
-            # Save new quiz to DB
-            logger.info(f"Summary Saved for thread_id: {thread_id}")
-            await run_in_threadpool(save_summary_to_db, db, thread_id, summary)
-            await run_in_threadpool(save_url_to_db, db, thread_id, url)
+            await run_in_threadpool(save_topics_to_db, db, thread_id, topics_output)
+            logger.info(f"✅ Topics saved for {thread_id}")
         except SQLAlchemyError as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Failed to save quiz: {str(e)}")
+            logger.error(f"⚠️ Failed to save topics: {e}")
 
-    return {
-        "main_summary": summary.main_summary,
-    }
+    # 3. Cache Summary and Return
+    if summary:
+        try:
+            await run_in_threadpool(save_summary_to_db, db, thread_id, summary)
+            await run_in_threadpool(save_url_to_db, db, thread_id, url)
+            logger.info(f"✅ Summary saved for {thread_id}")
+        except SQLAlchemyError as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"❌ Failed to save summary: {str(e)}")
+
+    return {"main_summary": summary.main_summary}

@@ -2,7 +2,8 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.db
+# Allow .db files to be copied into the image
+# *.db (removed)
 .env
 .git
 .gitignore

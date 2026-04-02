@@ -97,7 +97,7 @@ def build_retriever(chunks, thread_id, *, top_n: int = 3, doc_language: str = "E
 
     vector_store, _ = build_vector_store(chunks)
 
-    @traceable(name="Translated_Cosine_Retriever", metadata={"embedding_model": EMBEDDING_MODEL, "index_path": index_path})
+    @traceable(name="simple-retriever", metadata={"embedding_model": EMBEDDING_MODEL, "index_path": index_path})
     def retrieve(query: str):
         search_query = query
 

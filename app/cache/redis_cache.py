@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Read Redis URL (example: redis://default:password@redis:6379/0)
-REDIS_URL = os.getenv("REDIS_URL")
+# Read Redis URL (default to localhost if not specified)
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 try:
     # Create Redis client using URL

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from app.pydantic_models.topics_model import TopicsOutput
 
 
 class SubtopicSummary(BaseModel):
@@ -18,3 +19,8 @@ class TopicSummary(BaseModel):
 
 class SummaryOutput(BaseModel):
     main_summary: List[TopicSummary] = Field(description="Summaries of all main topics with their subtopics")
+
+
+class CombinedStudyOutput(BaseModel):
+    topics: TopicsOutput = Field(description="List of main topics and subtopics with timestamps")
+    summary: SummaryOutput = Field(description="Detailed summaries for each topic/subtopic")

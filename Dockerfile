@@ -14,13 +14,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy only requirements first (for better caching)
 COPY requirements.txt .
 
-# Install dependencies (force CPU-only torch to reduce size)
+# Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy project files
-COPY . .
+# Copy necessary application files only
+COPY app/ ./app/
+COPY tubetalk.db .
+
+# (Optional: Copy other static assets/folders if your app needs them)
 
 # Expose app port
 EXPOSE 8000
