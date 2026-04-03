@@ -13,6 +13,10 @@ import re
 from dotenv import load_dotenv
 load_dotenv()
 from app.utils.utility_functions import load_transcript
+from langsmith import traceable
+import logging
+
+logger = logging.getLogger(__name__)
 # -------------------------
 # Data Classes for Transcript
 # -------------------------
@@ -82,6 +86,7 @@ class TopicGenerator:
     # -------------------------
     
     # No use of these functions , it does not make much difference in output
+    @traceable(name = "parse_transripts")
     def parse_transcript(self, transcript: str) -> List[TimestampedSegment]:
         """
         Input --> "AI helps in automation (23.5)".
@@ -108,8 +113,10 @@ class TopicGenerator:
     # -------------------------
     # Topic Extraction with LLM
     # -------------------------
+    @traceable(name="extract_topics")
     async def extract_topics(self, transcript: str) -> TopicsOutput:
         """Extract structured topics from transcript using LLM"""
+        logger.info("🎯 Extracting structured topics from transcript.")
         prompt = self.chat_prompt.format_prompt(
             transcript=transcript, format_instructions=self.format_instructions
         )
@@ -131,25 +138,25 @@ class TopicGenerator:
 # -------------------------
 # Example Runner
 # -------------------------
-import os
-if __name__ == "__main__":
-    analyzer = TopicGenerator(os.environ["GOOGLE_API_KEY"])
+# import os
+# if __name__ == "__main__":
+#     analyzer = TopicGenerator(os.environ["GOOGLE_API_KEY"])
 
-    captions = load_transcript("https://youtu.be/vLES-g5Va3w")
-    if captions:
-        segments = analyzer.parse_transcript(captions)
-        print("====================================================")
-        print(segments)
-        formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
-        print("====================================================")
-        print(formatted)
-        response = analyzer.extract_topics(" ".join(formatted))
-        print("====================================================")
-        print(response)
-        # Pretty print
-        for i, topic in enumerate(response.main_topics, 1):
-            print(f"\n🎯 Main Topic {i}: {topic.topic}  ⏰ {topic.timestamp}")
-            print("----------------------------------------------------")
-            for j, sub in enumerate(topic.subtopics, 1):
-                print(f"   🔹 Subtopic {i}.{j}: {sub.subtopic}  ⏰ {sub.timestamp} {sub.importance}")
-            print("====================================================")
+#     captions = load_transcript("https://youtu.be/vLES-g5Va3w")
+#     if captions:
+#         segments = analyzer.parse_transcript(captions)
+#         print("====================================================")
+#         print(segments)
+#         formatted = [f"[{seg.start_time}s] {seg.text}" for seg in segments]
+#         print("====================================================")
+#         print(formatted)
+#         response = analyzer.extract_topics(" ".join(formatted))
+#         print("====================================================")
+#         print(response)
+#         # Pretty print
+#         for i, topic in enumerate(response.main_topics, 1):
+#             print(f"\n🎯 Main Topic {i}: {topic.topic}  ⏰ {topic.timestamp}")
+#             print("----------------------------------------------------")
+#             for j, sub in enumerate(topic.subtopics, 1):
+#                 print(f"   🔹 Subtopic {i}.{j}: {sub.subtopic}  ⏰ {sub.timestamp} {sub.importance}")
+#             print("====================================================")

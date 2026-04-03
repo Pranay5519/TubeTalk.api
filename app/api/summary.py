@@ -43,7 +43,7 @@ async def generate_or_load_summary(url: str,
         return {"main_summary": existing_summary.main_summary}
     
     # 2. If missing, generate everything in "One Pass"
-    logger.info(f"🧠 No existing data for {thread_id}, starting One-Pass Generation.")
+    logger.info(f"🧠 No existing summary for {thread_id}, starting One-Pass Generation.")
     summary_generator = SummaryGenerator(api_key=api_key)
 
     captions = load_transcript(url)
@@ -51,31 +51,22 @@ async def generate_or_load_summary(url: str,
         raise HTTPException(status_code=404, detail="❌ No transcript found for this video.")
     
     # Optimization: One-Pass (Topic + Summary in one call)
-    if existing_topics:
-        logger.info(f"📁 Using existing topics to generate summary for {thread_id}")
-        summary = await summary_generator.generate_summary(captions, str(existing_topics.main_topics))
-    else:
-        # PURE One-Pass Extraction
-        combined_result = await summary_generator.generate_topics_and_summary(captions)
-        topics_output = combined_result.topics
-        summary = combined_result.summary
+    # This is more token-efficient than passing both transcript and topics separately
+    combined_result = await summary_generator.generate_topics_and_summary(captions)
+    topics_output = combined_result.topics
+    summary = combined_result.summary
 
-        # Cache Topics immediately
-        try:
-            await run_in_threadpool(save_topics_to_db, db, thread_id, topics_output)
-            logger.info(f"✅ Topics saved for {thread_id}")
-        except SQLAlchemyError as e:
-            db.rollback()
-            logger.error(f"⚠️ Failed to save topics: {e}")
-
-    # 3. Cache Summary and Return
-    if summary:
-        try:
-            await run_in_threadpool(save_summary_to_db, db, thread_id, summary)
-            await run_in_threadpool(save_url_to_db, db, thread_id, url)
-            logger.info(f"✅ Summary saved for {thread_id}")
-        except SQLAlchemyError as e:
-            db.rollback()
-            raise HTTPException(status_code=500, detail=f"❌ Failed to save summary: {str(e)}")
+    # Cache both immediately
+    try:
+        await run_in_threadpool(save_topics_to_db, db, thread_id, topics_output)
+        await run_in_threadpool(save_summary_to_db, db, thread_id, summary)
+        await run_in_threadpool(save_url_to_db, db, thread_id, url)
+        logger.info(f"✅ Topics and Summary saved for {thread_id}")
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"⚠️ Failed to save data: {e}")
+        # We don't necessarily raise here if the generation succeeded, 
+        # but let's be consistent with previous error handling
+        raise HTTPException(status_code=500, detail=f"❌ Failed to save results: {str(e)}")
 
     return {"main_summary": summary.main_summary}

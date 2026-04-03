@@ -16,7 +16,6 @@ class TopicSummary(BaseModel):
     timestamp: float = Field(description="Timestamp where this topic is discussed")
     subtopics: List[SubtopicSummary] = Field(description="Summaries of subtopics under this topic")
 
-
 class SummaryOutput(BaseModel):
     main_summary: List[TopicSummary] = Field(description="Summaries of all main topics with their subtopics")
 

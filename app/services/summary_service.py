@@ -2,6 +2,10 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.runnable import RunnableSequence
 from app.pydantic_models.summay_model import SummaryOutput, CombinedStudyOutput
+from langsmith import traceable
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SummaryGenerator:
     def __init__(self, api_key: str, model_name: str = "gemini-2.5-flash", temperature: float = 0.3):
@@ -34,10 +38,12 @@ class SummaryGenerator:
             "- Use the provided (timestamp) markers in the transcript to assign accurate timestamps (in seconds)."
         )
 
+    @traceable(name="generate_summary")
     async def generate_summary(self, transcript: str, topics: str) -> SummaryOutput:
         """
         Generate a structured summary given transcript and topics.
         """
+        logger.info("📘 Generating summary based on provided topics structure.")
         prompt = ChatPromptTemplate.from_messages([
             ("system", "You are an expert video summarizer. Create a summary based on the provided topics and transcript."),
             ("human", "Transcript:\n{transcript}\n\nTopics & Subtopics:\n{topics}"),
@@ -45,10 +51,12 @@ class SummaryGenerator:
         chain = prompt | self.structured_llm
         return await chain.ainvoke({"transcript": transcript, "topics": topics})
 
+    @traceable(name="generate_topics_and_summary_one_pass")
     async def generate_topics_and_summary(self, transcript: str) -> CombinedStudyOutput:
         """
         One-pass method: Extract Topics AND Generate Summary from a single prompt.
         """
+        logger.info("🧠 Performing ONE-PASS generation for Topics AND Summary.")
         prompt = ChatPromptTemplate.from_messages([
             ("system", self.combined_system_message),
             ("human", "Here is the YouTube transcript with timestamps:\n{transcript}"),
@@ -81,7 +89,7 @@ if __name__ == "__main__":
         captions = load_transcript(url)
         print("\n🎬 Loaded Transcript")
         print("==" * 20)
-Sorry sorry
+
         if not captions:
             raise HTTPException(status_code=404, detail="No transcript found for this video.")
 
