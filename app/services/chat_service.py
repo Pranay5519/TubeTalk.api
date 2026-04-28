@@ -161,10 +161,11 @@ class ChatbotService:
 
         response: AnsandTime = self.structured_model.invoke(messages)
 
-        ai_text = (
-            f"Answer: {response.answer}\n"
-            f"Timestamp: {response.timestamp}s\n"
-        )
+        ai_text = f"{response.answer}\n"
+        
+        if response.timestamp is not None:
+            ai_text += f"\nTimestamp: {response.timestamp}\n"
+
         
         # Only add code block if it exists
         if response.code:

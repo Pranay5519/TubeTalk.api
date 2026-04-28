@@ -13,7 +13,7 @@ def load_transcript(url: str) -> str | None:
             data = [f"{item.text} ({item.start})" for item in captions]
             return " ".join(data)
         except Exception as e:
-            print(f"❌ Error fetching transcript: {e}")
+            print(f"❌ Error fetching transcript for video {video_id}: {e}")
             return None
 
 """        
@@ -39,3 +39,5 @@ def load_transcript(url: str) -> str | None:
     except Exception as e:
         print(f"❌ Error fetching transcript: {e}")
         return None """
+
+#print(load_transcript("https://www.youtube.com/watch?v=ZFoDo2Pgz1o"))

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.database.database import Base, engine, SessionLocal
 import datetime
 
+
 def get_db():
     db = SessionLocal()
     try:
@@ -30,6 +31,7 @@ router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 @router.post("/create_embeddings", response_model=EmbeddingResponse)
 async def create_embeddings(
     request: YouTubeRequest,
+    api_key: str = Depends(get_gemini_api_key),
     db: Session = Depends(get_db)
 ):
     """
@@ -56,7 +58,8 @@ async def create_embeddings(
             create_retriever_from_url,
             request.youtube_url, 
             "English", 
-            request.thread_id
+            request.thread_id,
+            api_key
         )
         
         if not retriever:
@@ -80,14 +83,8 @@ async def create_embeddings(
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest, api_key : str = Depends(get_gemini_api_key)):
-    import asyncio
     try:
-        asyncio.get_event_loop()
-    except RuntimeError:
-        asyncio.set_event_loop(asyncio.new_event_loop())
-        
-    try:
-        retriever = load_existing_retriever(request.thread_id)
+        retriever = load_existing_retriever(request.thread_id, api_key=api_key)
         logger.info(f'loaded embeddings-{datetime.datetime.now()}')
        
         chatbot_service = ChatbotService(api_key=api_key)
@@ -119,14 +116,8 @@ def chat(request: ChatRequest, api_key : str = Depends(get_gemini_api_key)):
 # testing purpose
 @router.post("/get_message_history", response_model=list[BaseMessage])
 def get_history(thread_id : str, api_key: str = Depends(get_gemini_api_key)):
-    import asyncio
     try:
-        asyncio.get_event_loop()
-    except RuntimeError:
-        asyncio.set_event_loop(asyncio.new_event_loop())
-
-    try:
-        retriever = load_existing_retriever(thread_id)
+        retriever = load_existing_retriever(thread_id, api_key=api_key)
         chatbot_service = ChatbotService(api_key=api_key)
         chatbot = chatbot_service.build_chatbot(retriever)
         all_messages = chatbot.get_state(config={'configurable': {'thread_id': thread_id}}).values['messages']

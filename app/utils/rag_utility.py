@@ -21,17 +21,17 @@ logger = logging.getLogger("uvicorn")
 # 1. Transcript Loader
 # ──────────────────────────────────────────────
 def load_transcript(url: str) -> str | None:
-
+ 
     pattern = r'(?:v=|\/)([0-9A-Za-z_-]{11})'
     match = re.search(pattern, url)
     if match:
         video_id = match.group(1)
         try:
-            captions = YouTubeTranscriptApi().fetch(video_id, languages=['en', 'hi']).snippets
+            captions = YouTubeTranscriptApi().fetch(video_id,languages=['en','hi']).snippets
             data = [f"{item.text} ({item.start})" for item in captions]
             return " ".join(data)
         except Exception as e:
-            print(f" Error fetching transcript: {e}")
+            print(f"❌ Error fetching transcript for video {video_id}: {e}")
             return None
 
 
@@ -47,13 +47,25 @@ def text_splitter(transcript: str):
 # ──────────────────────────────────────────────
 EMBEDDING_MODEL = "gemini-embedding-001"
 
-def build_retriever(chunks, thread_id, *, top_n: int = 3, doc_language: str = "English"):
+def build_retriever(chunks, thread_id, api_key: str = None, *, top_n: int = 3, doc_language: str = "English"):
+    import asyncio
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
+    effective_api_key = api_key or os.getenv("GOOGLE_API_KEY")
+    
     embeddings = GoogleGenerativeAIEmbeddings(
         model=EMBEDDING_MODEL,
-        google_api_key=os.getenv("GOOGLE_API_KEY")
+        google_api_key=effective_api_key
     )
 
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash", 
+        temperature=0,
+        google_api_key=effective_api_key
+    )
 
     base_dir = "faiss_indexes"
     index_path = os.path.join(base_dir, thread_id)
@@ -133,23 +145,23 @@ def build_retriever(chunks, thread_id, *, top_n: int = 3, doc_language: str = "E
     return retrieve
 
 # ──────────────────────────────────────────────
-# 4. One-shot pipeline helper
+# 4. One-shot pipeline helper 
 # ──────────────────────────────────────────────
-def create_retriever_from_url(youtube_url: str, doc_language: str, thread_id: str):
+def create_retriever_from_url(youtube_url: str, doc_language: str, thread_id: str, api_key: str = None):
     """URL → transcript → chunks → retrieve callable"""
 
-    print("📥 Fetching transcript …")
+    logger.info("📥 Fetching transcript …")
     transcript = load_transcript(youtube_url)
     if not transcript:
         return None
 
-    print("✂️  Splitting into chunks …")
+    logger.info("✂️  Splitting into chunks …")
     chunks = text_splitter(transcript)
 
-    print(f"🔍 Building Cosine Similarity retriever ({doc_language}) …")
-    retriever = build_retriever(chunks, thread_id=thread_id, doc_language=doc_language)
+    logger.info(f"🔍 Building Cosine Similarity retriever ({doc_language}) …")
+    retriever = build_retriever(chunks, thread_id=thread_id, api_key=api_key, doc_language=doc_language)
 
-    print("✅ Retriever ready.")
+    logger.info("✅ Retriever ready.")
     return retriever 
 
 # ──────────────────────────────────────────────
@@ -160,7 +172,7 @@ def check_index_exists(thread_id: str) -> bool:
     index_path = os.path.join(base_dir, thread_id)
     return os.path.exists(index_path)
 
-def load_existing_retriever(thread_id: str, doc_language: str = "English"):
+def load_existing_retriever(thread_id: str, api_key: str = None, doc_language: str = "English"):
     """
     Load an existing retriever for a thread_id.
     Redis caching is handled internally by build_retriever (caching vectors, not functions).
@@ -170,7 +182,7 @@ def load_existing_retriever(thread_id: str, doc_language: str = "English"):
         raise FileNotFoundError(f"❌ No FAISS index found for thread_id={thread_id}")
     
     # Just call build_retriever with None for docs; it will check Redis/Disk
-    return build_retriever(None, thread_id=thread_id, doc_language=doc_language)
+    return build_retriever(None, thread_id=thread_id, api_key=api_key, doc_language=doc_language)
 
 def clear_faiss_indexes(base_dir: str = "faiss_indexes"):
     if os.path.exists(base_dir):
